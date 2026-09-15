@@ -15,8 +15,11 @@ import {
   Save,
   Trash2,
   Plus,
+  Check,
+  Pencil,
 } from "lucide-react";
 import CreateWorkoutModal from "@/components/CreateWorkoutModal";
+import EditWorkoutModal from "@/components/EditWorkoutModal";
 
 interface UserProfile {
   id: string;
@@ -47,12 +50,14 @@ export default function DashboardPage() {
   const [selectedStudent, setSelectedStudent] = useState<UserProfile | null>(null);
   const [selectedStudentWorkouts, setSelectedStudentWorkouts] = useState<Workout[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingWorkout, setEditingWorkout] = useState<Workout | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingWorkouts, setLoadingWorkouts] = useState(false);
 
   // Estados da visão do Aluno
   const [studentWorkouts, setStudentWorkouts] = useState<Workout[]>([]);
   const [savingExerciseId, setSavingExerciseId] = useState<string | null>(null);
+  const [completingWorkoutId, setCompletingWorkoutId] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadDashboardData() {
@@ -94,7 +99,6 @@ export default function DashboardPage() {
     loadDashboardData();
   }, [router]);
 
-  // Carrega os treinos do aluno selecionado pelo Personal
   async function fetchSelectedStudentWorkouts(studentId: string) {
     setLoadingWorkouts(true);
     const { data: workoutsData, error } = await supabase
@@ -109,7 +113,6 @@ export default function DashboardPage() {
     setLoadingWorkouts(false);
   }
 
-  // Quando o Personal clica em um aluno, seleciona e busca as fichas dele
   function handleSelectStudent(student: UserProfile) {
     setSelectedStudent(student);
     fetchSelectedStudentWorkouts(student.id);
@@ -132,7 +135,6 @@ export default function DashboardPage() {
     router.push("/login");
   }
 
-  // Função do Personal para Excluir uma Ficha inteira
   async function handleDeleteWorkout(workoutId: string) {
     const confirmDelete = confirm("Tem certeza que deseja excluir esta ficha de treino?");
     if (!confirmDelete) return;
@@ -153,7 +155,6 @@ export default function DashboardPage() {
     }
   }
 
-  // Permite ao aluno atualizar a carga
   function handleWeightChange(workoutIndex: number, exerciseIndex: number, newWeight: number) {
     const updatedWorkouts = [...studentWorkouts];
     updatedWorkouts[workoutIndex].exercises[exerciseIndex].weight = newWeight;
@@ -176,6 +177,28 @@ export default function DashboardPage() {
     }
 
     setSavingExerciseId(null);
+  }
+
+  async function handleCompleteWorkout(workoutTitle: string, workoutId: string) {
+    if (!profile) return;
+    setCompletingWorkoutId(workoutId);
+
+    const { error } = await supabase.from("workout_logs").insert([
+      {
+        student_id: profile.id,
+        workout_id: workoutId,
+        workout_title: workoutTitle,
+      },
+    ]);
+
+    if (error) {
+      console.error("Erro ao registrar treino:", error);
+      alert("Erro ao registrar conclusão do treino.");
+    } else {
+      alert("Parabéns! Treino registrado com sucesso no seu histórico.");
+    }
+
+    setCompletingWorkoutId(null);
   }
 
   if (loading) {
@@ -250,7 +273,6 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Gerenciador do Aluno Selecionado */}
           {selectedStudent && (
             <div className="mt-6 p-5 rounded-2xl bg-zinc-900 border border-emerald-500/30 space-y-4">
               <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
@@ -270,7 +292,6 @@ export default function DashboardPage() {
                 </button>
               </div>
 
-              {/* Lista de Fichas do Aluno */}
               {loadingWorkouts ? (
                 <div className="flex justify-center py-4">
                   <Loader2 className="w-5 h-5 text-emerald-500 animate-spin" />
@@ -291,13 +312,22 @@ export default function DashboardPage() {
                           <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                           {workout.title}
                         </h4>
-                        <button
-                          onClick={() => handleDeleteWorkout(workout.id)}
-                          className="p-1.5 text-zinc-500 hover:text-red-400 transition-colors rounded-lg hover:bg-zinc-900"
-                          title="Excluir ficha"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => setEditingWorkout(workout)}
+                            className="p-1.5 text-zinc-400 hover:text-emerald-400 transition-colors rounded-lg hover:bg-zinc-900"
+                            title="Editar ficha"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteWorkout(workout.id)}
+                            className="p-1.5 text-zinc-500 hover:text-red-400 transition-colors rounded-lg hover:bg-zinc-900"
+                            title="Excluir ficha"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
 
                       <div className="space-y-1.5 pt-1 border-t border-zinc-900">
@@ -325,9 +355,17 @@ export default function DashboardPage() {
       {/* VISÃO DO ALUNO */}
       {profile?.role === "student" && (
         <section className="space-y-6">
-          <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-2">
-            <LineChart className="w-4 h-4 text-emerald-500" /> Minhas Fichas de Treino
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-2">
+              <LineChart className="w-4 h-4 text-emerald-500" /> Minhas Fichas de Treino
+            </h2>
+            <button
+              onClick={() => router.push("/progresso")}
+              className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-1"
+            >
+              Ver meu histórico completo →
+            </button>
+          </div>
 
           {studentWorkouts.length === 0 ? (
             <div className="p-6 text-center bg-zinc-900/50 border border-zinc-800 rounded-xl">
@@ -346,9 +384,18 @@ export default function DashboardPage() {
                     <CheckCircle2 className="w-5 h-5 text-emerald-500" />
                     {workout.title}
                   </h3>
-                  <span className="text-xs text-zinc-500">
-                    {workout.exercises.length} Exercício(s)
-                  </span>
+                  <button
+                    onClick={() => handleCompleteWorkout(workout.title, workout.id)}
+                    disabled={completingWorkoutId === workout.id}
+                    className="py-1 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white flex items-center gap-1 transition-colors"
+                  >
+                    {completingWorkoutId === workout.id ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Check className="w-3.5 h-3.5" />
+                    )}
+                    Concluir Treino
+                  </button>
                 </div>
 
                 <div className="space-y-3">
@@ -409,6 +456,17 @@ export default function DashboardPage() {
           studentId={selectedStudent.id}
           studentName={selectedStudent.name}
           onClose={() => setIsModalOpen(false)}
+          onSuccess={() => {
+            fetchSelectedStudentWorkouts(selectedStudent.id);
+          }}
+        />
+      )}
+
+      {/* Modal para editar treino */}
+      {editingWorkout && selectedStudent && (
+        <EditWorkoutModal
+          workout={editingWorkout}
+          onClose={() => setEditingWorkout(null)}
           onSuccess={() => {
             fetchSelectedStudentWorkouts(selectedStudent.id);
           }}
