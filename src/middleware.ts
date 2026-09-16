@@ -35,12 +35,12 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname
 
-  // Se não estiver logado e tentar acessar rotas protegidas
+  // 1. Se não estiver logado, redireciona para login
   if (!user && pathname !== '/login' && !pathname.startsWith('/auth')) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Se estiver logado, busca perfil na tabela profiles
+  // 2. Se estiver logado, busca o perfil sem bloquear caso ocorra erro
   if (user) {
     const { data: profile } = await supabase
       .from('profiles')
@@ -48,14 +48,17 @@ export async function middleware(request: NextRequest) {
       .eq('id', user.id)
       .maybeSingle()
 
-    // Só bloqueia se o status for estritamente 'pendente' e não estiver na própria tela de aviso
-    if (profile?.status === 'pendente' && pathname !== '/aguardando-aprovacao') {
-      return NextResponse.redirect(new URL('/aguardando-aprovacao', request.url))
+    // Libera direto se for Personal Trainer
+    if (profile?.role === 'personal') {
+      if (pathname === '/aguardando-aprovacao') {
+        return NextResponse.redirect(new URL('/', request.url))
+      }
+      return response
     }
 
-    // Se estiver ativo ou for personal, não deixa ficar preso na tela de aviso
-    if (profile?.status === 'ativo' && pathname === '/aguardando-aprovacao') {
-      return NextResponse.redirect(new URL('/', request.url))
+    // Só manda para análise se for explicitamente aluno e estiver pendente
+    if (profile?.role === 'aluno' && profile?.status === 'pendente' && pathname !== '/aguardando-aprovacao') {
+      return NextResponse.redirect(new URL('/aguardando-aprovacao', request.url))
     }
   }
 
