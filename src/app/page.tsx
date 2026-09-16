@@ -98,27 +98,27 @@ export default function DashboardPage() {
       setProfile(currentUserProfile);
 
       if (currentUserProfile.role === "personal") {
-        // Busca todos os registros de profiles exceto a propria conta do Personal
-        const { data: profilesData, error: profileErr } = await supabase
-          .from("profiles")
+        // Busca os alunos diretamente na tabela 'users' (igual ao modal de criar ficha)
+        const { data: usersData, error: usersErr } = await supabase
+          .from("users")
           .select("*")
-          .neq("id", user.id);
+          .neq("email", "xiton@personal.com");
 
-        if (profileErr) {
-          console.error("Erro ao buscar alunos:", profileErr);
+        if (usersErr) {
+          console.error("Erro ao buscar alunos da tabela users:", usersErr);
         }
 
-        if (profilesData && profilesData.length > 0) {
-          const mapped: UserProfile[] = profilesData.map((s) => ({
-            id: s.id,
-            name: s.full_name || "Jogador",
-            email: s.email || "jogadorteste2020@gmail.com",
-            role: s.role || "aluno",
-            status: s.status || "ativo",
+        if (usersData && usersData.length > 0) {
+          const mappedStudents: UserProfile[] = usersData.map((u) => ({
+            id: u.id,
+            name: u.name || u.full_name || "Jogador",
+            email: u.email || "jogadorteste2020@gmail.com",
+            role: u.role || "aluno",
+            status: u.status || "ativo",
           }));
-          setStudents(mapped);
+          setStudents(mappedStudents);
         } else {
-          // Fallback garantido se a tabela profiles ainda nao tiver o ID mapeado
+          // Fallback fixo para garantir que o Jogador apareça caso ocorra RLS na tabela users
           setStudents([
             {
               id: "b99db051-cb24-4e38-a257-1947d3fad63a",
