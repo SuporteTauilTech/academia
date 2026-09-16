@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
 import {
   Dumbbell,
@@ -25,7 +25,8 @@ interface UserProfile {
   id: string;
   name: string;
   email: string;
-  role: "personal" | "student";
+  role: "personal" | "aluno" | "student";
+  status?: string;
 }
 
 interface Exercise {
@@ -54,10 +55,14 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [loadingWorkouts, setLoadingWorkouts] = useState(false);
 
-  // Estados da visão do Aluno
   const [studentWorkouts, setStudentWorkouts] = useState<Workout[]>([]);
   const [savingExerciseId, setSavingExerciseId] = useState<string | null>(null);
   const [completingWorkoutId, setCompletingWorkoutId] = useState<string | null>(null);
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
   useEffect(() => {
     async function loadDashboardData() {
@@ -68,25 +73,47 @@ export default function DashboardPage() {
         return;
       }
 
+      // 1. Busca perfil na tabela 'profiles' padronizada
       const { data: userData } = await supabase
-        .from("users")
+        .from("profiles")
         .select("*")
         .eq("id", session.user.id)
         .single();
 
       if (userData) {
-        const user = userData as UserProfile;
+        // Redireciona se o aluno ainda estiver com cadastro pendente
+        if (userData.status === "pendente") {
+          router.push("/aguardando-aprovacao");
+          return;
+        }
+
+        const user: UserProfile = {
+          id: userData.id,
+          name: userData.full_name || session.user.email?.split("@")[0] || "Usuário",
+          email: session.user.email || "",
+          role: userData.role || "aluno",
+          status: userData.status,
+        };
+
         setProfile(user);
 
         if (user.role === "personal") {
           const { data: studentsData } = await supabase
-            .from("users")
+            .from("profiles")
             .select("*")
-            .eq("role", "student")
-            .order("name", { ascending: true });
+            .in("role", ["aluno", "student"])
+            .eq("status", "ativo")
+            .order("full_name", { ascending: true });
 
           if (studentsData) {
-            setStudents(studentsData as UserProfile[]);
+            const mappedStudents: UserProfile[] = studentsData.map((s) => ({
+              id: s.id,
+              name: s.full_name || "Aluno sem nome",
+              email: s.email || "",
+              role: s.role,
+              status: s.status,
+            }));
+            setStudents(mappedStudents);
           }
         } else {
           fetchStudentWorkouts(user.id);
@@ -133,6 +160,7 @@ export default function DashboardPage() {
   async function handleSignOut() {
     await supabase.auth.signOut();
     router.push("/login");
+    router.refresh();
   }
 
   async function handleDeleteWorkout(workoutId: string) {
@@ -244,7 +272,7 @@ export default function DashboardPage() {
 
           {students.length === 0 ? (
             <div className="p-6 text-center bg-zinc-900/50 border border-zinc-800 rounded-xl">
-              <p className="text-xs text-zinc-500">Nenhum aluno cadastrado no momento.</p>
+              <p className="text-xs text-zinc-500">Nenhum aluno ativo cadastrado no momento.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3">
@@ -353,7 +381,7 @@ export default function DashboardPage() {
       )}
 
       {/* VISÃO DO ALUNO */}
-      {profile?.role === "student" && (
+      {(profile?.role === "aluno" || profile?.role === "student") && (
         <section className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-2">
@@ -450,7 +478,7 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {/* Modal para criar treino */}
+      {/* Modais */}
       {isModalOpen && selectedStudent && (
         <CreateWorkoutModal
           studentId={selectedStudent.id}
@@ -462,7 +490,6 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* Modal para editar treino */}
       {editingWorkout && selectedStudent && (
         <EditWorkoutModal
           workout={editingWorkout}
