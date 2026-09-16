@@ -66,7 +66,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function loadDashboardData() {
-      // 1. Obtém o usuário direto da Auth
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
@@ -74,20 +73,17 @@ export default function DashboardPage() {
         return;
       }
 
-      // 2. Busca o perfil usando maybeSingle() para evitar lançar exceção
       const { data: userData } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", user.id)
         .maybeSingle();
 
-      // Redireciona caso esteja explicitamente pendente
       if (userData?.status === "pendente") {
         router.push("/aguardando-aprovacao");
         return;
       }
 
-      // Se for a conta do Personal Trainer ou o perfil definir 'personal'
       const isPersonal = userData?.role === "personal" || user.email === "xiton@personal.com";
       const determinedRole = isPersonal ? "personal" : (userData?.role || "aluno");
 
@@ -101,8 +97,8 @@ export default function DashboardPage() {
 
       setProfile(currentUserProfile);
 
-      // Carrega dados baseados na role resolvida
       if (currentUserProfile.role === "personal") {
+        // Busca todos os alunos cadastrados sem filtrar por status estrito
         const { data: studentsData } = await supabase
           .from("profiles")
           .select("*")
