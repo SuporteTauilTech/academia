@@ -17,9 +17,11 @@ import {
   Plus,
   Check,
   Pencil,
+  Activity,
 } from "lucide-react";
 import CreateWorkoutModal from "@/components/CreateWorkoutModal";
 import EditWorkoutModal from "@/components/EditWorkoutModal";
+import AddMetricsModal from "@/components/AddMetricsModal";
 
 interface UserProfile {
   id: string;
@@ -44,13 +46,24 @@ interface Workout {
   exercises: Exercise[];
 }
 
+interface BodyMetric {
+  id: string;
+  weight: number | null;
+  height: number | null;
+  body_fat: number | null;
+  muscle_mass: number | null;
+  created_at: string;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [students, setStudents] = useState<UserProfile[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<UserProfile | null>(null);
   const [selectedStudentWorkouts, setSelectedStudentWorkouts] = useState<Workout[]>([]);
+  const [selectedStudentMetrics, setSelectedStudentMetrics] = useState<BodyMetric[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isMetricsModalOpen, setIsMetricsModalOpen] = useState(false);
   const [editingWorkout, setEditingWorkout] = useState<Workout | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingWorkouts, setLoadingWorkouts] = useState(false);
@@ -98,15 +111,10 @@ export default function DashboardPage() {
       setProfile(currentUserProfile);
 
       if (currentUserProfile.role === "personal") {
-        // Busca os alunos diretamente na tabela 'users' (igual ao modal de criar ficha)
-        const { data: usersData, error: usersErr } = await supabase
+        const { data: usersData } = await supabase
           .from("users")
           .select("*")
           .neq("email", "xiton@personal.com");
-
-        if (usersErr) {
-          console.error("Erro ao buscar alunos da tabela users:", usersErr);
-        }
 
         if (usersData && usersData.length > 0) {
           const mappedStudents: UserProfile[] = usersData.map((u) => ({
@@ -118,7 +126,6 @@ export default function DashboardPage() {
           }));
           setStudents(mappedStudents);
         } else {
-          // Fallback fixo para garantir que o Jogador apareça caso ocorra RLS na tabela users
           setStudents([
             {
               id: "b99db051-cb24-4e38-a257-1947d3fad63a",
@@ -139,23 +146,35 @@ export default function DashboardPage() {
     loadDashboardData();
   }, [router]);
 
-  async function fetchSelectedStudentWorkouts(studentId: string) {
+  async function fetchSelectedStudentData(studentId: string) {
     setLoadingWorkouts(true);
-    const { data: workoutsData, error } = await supabase
+
+    const { data: workoutsData } = await supabase
       .from("workouts")
       .select("*, exercises(*)")
       .eq("student_id", studentId)
       .order("created_at", { ascending: false });
 
-    if (!error && workoutsData) {
+    if (workoutsData) {
       setSelectedStudentWorkouts(workoutsData as Workout[]);
     }
+
+    const { data: metricsData } = await supabase
+      .from("body_metrics")
+      .select("*")
+      .eq("student_id", studentId)
+      .order("created_at", { ascending: false });
+
+    if (metricsData) {
+      setSelectedStudentMetrics(metricsData as BodyMetric[]);
+    }
+
     setLoadingWorkouts(false);
   }
 
   function handleSelectStudent(student: UserProfile) {
     setSelectedStudent(student);
-    fetchSelectedStudentWorkouts(student.id);
+    fetchSelectedStudentData(student.id);
   }
 
   async function fetchStudentWorkouts(studentId: string) {
@@ -191,7 +210,7 @@ export default function DashboardPage() {
     } else {
       alert("Ficha excluída com sucesso!");
       if (selectedStudent) {
-        fetchSelectedStudentWorkouts(selectedStudent.id);
+        fetchSelectedStudentData(selectedStudent.id);
       }
     }
   }
@@ -315,79 +334,135 @@ export default function DashboardPage() {
           )}
 
           {selectedStudent && (
-            <div className="mt-6 p-5 rounded-2xl bg-zinc-900 border border-emerald-500/30 space-y-4">
-              <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+            <div className="mt-6 p-5 rounded-2xl bg-zinc-900 border border-emerald-500/30 space-y-6">
+              {/* Cabecalho de Acoes do Aluno */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800 pb-4">
                 <div>
-                  <h3 className="text-sm font-bold text-emerald-400">
-                    Gerenciar Fichas: {selectedStudent.name}
+                  <h3 className="text-base font-bold text-emerald-400">
+                    {selectedStudent.name}
                   </h3>
                   <p className="text-xs text-zinc-400">
-                    Acompanhe e edite o programa de treinos do aluno.
+                    Gerencie treinos, fichas e avaliações físicas.
                   </p>
                 </div>
-                <button
-                  onClick={() => setIsModalOpen(true)}
-                  className="py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium text-xs text-white transition-colors flex items-center gap-1.5"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Nova Ficha
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setIsMetricsModalOpen(true)}
+                    className="py-2 px-3 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 font-medium text-xs text-emerald-400 transition-colors flex items-center gap-1.5"
+                  >
+                    <Activity className="w-3.5 h-3.5" /> Nova Avaliação
+                  </button>
+                  <button
+                    onClick={() => setIsModalOpen(true)}
+                    className="py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium text-xs text-white transition-colors flex items-center gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Nova Ficha
+                  </button>
+                </div>
               </div>
 
-              {loadingWorkouts ? (
-                <div className="flex justify-center py-4">
-                  <Loader2 className="w-5 h-5 text-emerald-500 animate-spin" />
-                </div>
-              ) : selectedStudentWorkouts.length === 0 ? (
-                <p className="text-xs text-zinc-500 py-2">
-                  Este aluno ainda não possui fichas cadastradas.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {selectedStudentWorkouts.map((workout) => (
-                    <div
-                      key={workout.id}
-                      className="p-4 bg-zinc-950 border border-zinc-800 rounded-xl space-y-3"
-                    >
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                          {workout.title}
-                        </h4>
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => setEditingWorkout(workout)}
-                            className="p-1.5 text-zinc-400 hover:text-emerald-400 transition-colors rounded-lg hover:bg-zinc-900"
-                            title="Editar ficha"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteWorkout(workout.id)}
-                            className="p-1.5 text-zinc-500 hover:text-red-400 transition-colors rounded-lg hover:bg-zinc-900"
-                            title="Excluir ficha"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="space-y-1.5 pt-1 border-t border-zinc-900">
-                        {workout.exercises.map((ex) => (
-                          <div
-                            key={ex.id}
-                            className="flex justify-between items-center text-xs text-zinc-400"
-                          >
-                            <span>{ex.name}</span>
-                            <span className="text-zinc-500">
-                              {ex.sets}x{ex.reps} • {ex.weight}kg
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+              {/* Ultima Avaliacao Fisica */}
+              {selectedStudentMetrics.length > 0 && (
+                <div className="p-4 bg-zinc-950 border border-zinc-800 rounded-xl space-y-2">
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-xs font-semibold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <Activity className="w-3.5 h-3.5" /> Última Avaliação Física
+                    </h4>
+                    <span className="text-[10px] text-zinc-500">
+                      {new Date(selectedStudentMetrics[0].created_at).toLocaleDateString("pt-BR")}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs">
+                    <div className="bg-zinc-900 p-2 rounded-lg border border-zinc-800/80">
+                      <span className="text-zinc-500 text-[10px] block">Peso</span>
+                      <span className="font-bold text-white">
+                        {selectedStudentMetrics[0].weight ? `${selectedStudentMetrics[0].weight} kg` : "-"}
+                      </span>
                     </div>
-                  ))}
+                    <div className="bg-zinc-900 p-2 rounded-lg border border-zinc-800/80">
+                      <span className="text-zinc-500 text-[10px] block">Gordura (BF)</span>
+                      <span className="font-bold text-emerald-400">
+                        {selectedStudentMetrics[0].body_fat ? `${selectedStudentMetrics[0].body_fat}%` : "-"}
+                      </span>
+                    </div>
+                    <div className="bg-zinc-900 p-2 rounded-lg border border-zinc-800/80">
+                      <span className="text-zinc-500 text-[10px] block">Massa Magra</span>
+                      <span className="font-bold text-white">
+                        {selectedStudentMetrics[0].muscle_mass ? `${selectedStudentMetrics[0].muscle_mass} kg` : "-"}
+                      </span>
+                    </div>
+                    <div className="bg-zinc-900 p-2 rounded-lg border border-zinc-800/80">
+                      <span className="text-zinc-500 text-[10px] block">Altura</span>
+                      <span className="font-bold text-white">
+                        {selectedStudentMetrics[0].height ? `${selectedStudentMetrics[0].height} cm` : "-"}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               )}
+
+              {/* Fichas de Treino */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                  Fichas de Treino Cadastradas
+                </h4>
+
+                {loadingWorkouts ? (
+                  <div className="flex justify-center py-4">
+                    <Loader2 className="w-5 h-5 text-emerald-500 animate-spin" />
+                  </div>
+                ) : selectedStudentWorkouts.length === 0 ? (
+                  <p className="text-xs text-zinc-500 py-2">
+                    Este aluno ainda não possui fichas cadastradas.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {selectedStudentWorkouts.map((workout) => (
+                      <div
+                        key={workout.id}
+                        className="p-4 bg-zinc-950 border border-zinc-800 rounded-xl space-y-3"
+                      >
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                            {workout.title}
+                          </h4>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => setEditingWorkout(workout)}
+                              className="p-1.5 text-zinc-400 hover:text-emerald-400 transition-colors rounded-lg hover:bg-zinc-900"
+                              title="Editar ficha"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteWorkout(workout.id)}
+                              className="p-1.5 text-zinc-500 hover:text-red-400 transition-colors rounded-lg hover:bg-zinc-900"
+                              title="Excluir ficha"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5 pt-1 border-t border-zinc-900">
+                          {workout.exercises.map((ex) => (
+                            <div
+                              key={ex.id}
+                              className="flex justify-between items-center text-xs text-zinc-400"
+                            >
+                              <span>{ex.name}</span>
+                              <span className="text-zinc-500">
+                                {ex.sets}x{ex.reps} • {ex.weight}kg
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </section>
@@ -498,7 +573,18 @@ export default function DashboardPage() {
           studentName={selectedStudent.name}
           onClose={() => setIsModalOpen(false)}
           onSuccess={() => {
-            fetchSelectedStudentWorkouts(selectedStudent.id);
+            fetchSelectedStudentData(selectedStudent.id);
+          }}
+        />
+      )}
+
+      {isMetricsModalOpen && selectedStudent && (
+        <AddMetricsModal
+          studentId={selectedStudent.id}
+          studentName={selectedStudent.name}
+          onClose={() => setIsMetricsModalOpen(false)}
+          onSuccess={() => {
+            fetchSelectedStudentData(selectedStudent.id);
           }}
         />
       )}
@@ -508,7 +594,7 @@ export default function DashboardPage() {
           workout={editingWorkout}
           onClose={() => setEditingWorkout(null)}
           onSuccess={() => {
-            fetchSelectedStudentWorkouts(selectedStudent.id);
+            fetchSelectedStudentData(selectedStudent.id);
           }}
         />
       )}
