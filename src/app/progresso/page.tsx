@@ -12,6 +12,8 @@ import {
   Scale,
   TrendingDown,
   Dumbbell,
+  Users,
+  CheckCircle2,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -22,6 +24,13 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
+
+interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
 
 interface BodyMetric {
   id: string;
@@ -43,10 +52,20 @@ interface BodyMetric {
   created_at: string;
 }
 
+interface WorkoutLog {
+  id: string;
+  workout_title: string;
+  created_at: string;
+}
+
 export default function ProgressoPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [isPersonal, setIsPersonal] = useState(false);
+  const [students, setStudents] = useState<UserProfile[]>([]);
+  const [selectedStudentId, setSelectedStudentId] = useState<string>("");
   const [metrics, setMetrics] = useState<BodyMetric[]>([]);
+  const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -54,7 +73,7 @@ export default function ProgressoPage() {
   );
 
   useEffect(() => {
-    async function loadProgressData() {
+    async function loadInitialData() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -64,21 +83,83 @@ export default function ProgressoPage() {
         return;
       }
 
-      const { data, error } = await supabase
-        .from("body_metrics")
-        .select("*")
-        .eq("student_id", user.id)
-        .order("created_at", { ascending: false });
+      const personalCheck = user.email === "xiton@personal.com";
+      setIsPersonal(personalCheck);
 
-      if (!error && data) {
-        setMetrics(data as BodyMetric[]);
+      if (personalCheck) {
+        // Busca alunos para o personal selecionar
+        const { data: usersData } = await supabase
+          .from("users")
+          .select("*")
+          .neq("email", "xiton@personal.com");
+
+        if (usersData && usersData.length > 0) {
+          const mapped: UserProfile[] = usersData.map((u) => ({
+            id: u.id,
+            name: u.name || u.full_name || "Jogador",
+            email: u.email || "",
+            role: u.role || "aluno",
+          }));
+          setStudents(mapped);
+          setSelectedStudentId(mapped[0].id);
+          fetchStudentProgress(mapped[0].id);
+        } else {
+          const fallback = {
+            id: "b99db051-cb24-4e38-a257-1947d3fad63a",
+            name: "Jogador",
+            email: "jogadorteste2020@gmail.com",
+            role: "aluno",
+          };
+          setStudents([fallback]);
+          setSelectedStudentId(fallback.id);
+          fetchStudentProgress(fallback.id);
+        }
+      } else {
+        fetchStudentProgress(user.id);
       }
 
       setLoading(false);
     }
 
-    loadProgressData();
+    loadInitialData();
   }, [router]);
+
+  async function fetchStudentProgress(studentId: string) {
+    setLoading(true);
+
+    // 1. Busca Métricas Físicas
+    const { data: metricsData } = await supabase
+      .from("body_metrics")
+      .select("*")
+      .eq("student_id", studentId)
+      .order("created_at", { ascending: false });
+
+    if (metricsData) {
+      setMetrics(metricsData as BodyMetric[]);
+    } else {
+      setMetrics([]);
+    }
+
+    // 2. Busca Frequência/Treinos Concluídos
+    const { data: logsData } = await supabase
+      .from("workout_logs")
+      .select("*")
+      .eq("student_id", studentId)
+      .order("created_at", { ascending: false });
+
+    if (logsData) {
+      setWorkoutLogs(logsData as WorkoutLog[]);
+    } else {
+      setWorkoutLogs([]);
+    }
+
+    setLoading(false);
+  }
+
+  function handleSelectStudent(studentId: string) {
+    setSelectedStudentId(studentId);
+    fetchStudentProgress(studentId);
+  }
 
   if (loading) {
     return (
@@ -90,7 +171,6 @@ export default function ProgressoPage() {
 
   const latestMetric = metrics[0];
 
-  // Prepara os dados cronológicos para os gráficos (da data mais antiga para a mais recente)
   const chartData = [...metrics]
     .reverse()
     .map((m) => ({
@@ -105,7 +185,7 @@ export default function ProgressoPage() {
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
-      <header className="flex items-center justify-between pb-4 border-b border-zinc-800">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-800">
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.push("/")}
@@ -115,23 +195,65 @@ export default function ProgressoPage() {
           </button>
           <div>
             <h1 className="text-base font-bold flex items-center gap-2">
-              <LineChartIcon className="w-5 h-5 text-emerald-500" /> Meu Progresso Físico
+              <LineChartIcon className="w-5 h-5 text-emerald-500" /> Histórico & Progresso
             </h1>
             <p className="text-xs text-zinc-400">
-              Acompanhe seu histórico de evolução corporal e medidas.
+              Acompanhe a evolução corporal e frequência de treinos.
             </p>
           </div>
         </div>
+
+        {isPersonal && students.length > 0 && (
+          <div className="flex items-center gap-2 bg-zinc-900 p-2 rounded-xl border border-zinc-800">
+            <Users className="w-4 h-4 text-emerald-400 ml-1" />
+            <select
+              value={selectedStudentId}
+              onChange={(e) => handleSelectStudent(e.target.value)}
+              className="bg-transparent text-xs text-white font-semibold focus:outline-none cursor-pointer pr-2"
+            >
+              {students.map((s) => (
+                <option key={s.id} value={s.id} className="bg-zinc-900 text-white">
+                  Aluno: {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </header>
+
+      {/* Resumo de Frequência */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center gap-4">
+          <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <div>
+            <span className="text-2xl font-bold text-white">{workoutLogs.length}</span>
+            <p className="text-xs text-zinc-400">Treinos Concluídos</p>
+          </div>
+        </div>
+
+        <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center gap-4">
+          <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400">
+            <Activity className="w-6 h-6" />
+          </div>
+          <div>
+            <span className="text-sm font-bold text-white">
+              {metrics.length > 0 ? `${metrics.length} Avaliação(ões)` : "Sem avaliações"}
+            </span>
+            <p className="text-xs text-zinc-400">Status de Progresso Físico</p>
+          </div>
+        </div>
+      </div>
 
       {metrics.length === 0 ? (
         <div className="p-8 text-center bg-zinc-900/50 border border-zinc-800 rounded-2xl space-y-3">
           <Activity className="w-10 h-10 text-zinc-600 mx-auto" />
           <h3 className="text-sm font-semibold text-zinc-300">
-            Nenhuma avaliação física registrada
+            Nenhuma avaliação física registrada para este aluno
           </h3>
           <p className="text-xs text-zinc-500 max-w-md mx-auto">
-            Assim que seu Personal Trainer cadastrar uma nova avaliação física, seu histórico de peso, % de gordura e gráficos interativos aparecerão aqui.
+            Cadastre uma nova avaliação física no painel para que os gráficos e métricas sejam gerados aqui.
           </p>
         </div>
       ) : (
@@ -140,7 +262,7 @@ export default function ProgressoPage() {
           <div className="p-5 bg-zinc-900 border border-emerald-500/30 rounded-2xl space-y-4">
             <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
               <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-                <Activity className="w-4 h-4" /> Última Avaliação
+                <Activity className="w-4 h-4" /> Última Avaliação Corporal
               </span>
               <span className="text-xs text-zinc-400 flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5 text-zinc-500" />
@@ -191,7 +313,6 @@ export default function ProgressoPage() {
 
           {/* Gráficos de Evolução */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Gráfico 1: Peso Corporal */}
             <div className="p-5 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-4">
               <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
                 <Scale className="w-4 h-4 text-emerald-400" /> Evolução de Peso (kg)
@@ -222,7 +343,6 @@ export default function ProgressoPage() {
               </div>
             </div>
 
-            {/* Gráfico 2: Gordura Corporal (% BF) */}
             <div className="p-5 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-4">
               <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
                 <TrendingDown className="w-4 h-4 text-emerald-400" /> Evolução de Gordura (%)
@@ -251,46 +371,6 @@ export default function ProgressoPage() {
                   </LineChart>
                 </ResponsiveContainer>
               </div>
-            </div>
-          </div>
-
-          {/* Tabela de Histórico Completo */}
-          <div className="p-5 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-4">
-            <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider">
-              Histórico de Avaliações
-            </h3>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-zinc-800 text-zinc-500">
-                    <th className="pb-3 font-medium">Data</th>
-                    <th className="pb-3 font-medium">Peso</th>
-                    <th className="pb-3 font-medium">% BF</th>
-                    <th className="pb-3 font-medium">Tórax</th>
-                    <th className="pb-3 font-medium">Cintura</th>
-                    <th className="pb-3 font-medium">Braço Dir.</th>
-                    <th className="pb-3 font-medium">Coxa Dir.</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-800/60 text-zinc-300">
-                  {metrics.map((m) => (
-                    <tr key={m.id} className="hover:bg-zinc-950/40">
-                      <td className="py-3 font-medium text-white">
-                        {new Date(m.created_at).toLocaleDateString("pt-BR")}
-                      </td>
-                      <td className="py-3">{m.weight ? `${m.weight} kg` : "-"}</td>
-                      <td className="py-3 text-emerald-400 font-semibold">
-                        {m.body_fat ? `${m.body_fat}%` : "-"}
-                      </td>
-                      <td className="py-3">{m.chest ? `${m.chest} cm` : "-"}</td>
-                      <td className="py-3">{m.waist ? `${m.waist} cm` : "-"}</td>
-                      <td className="py-3">{m.arm_right ? `${m.arm_right} cm` : "-"}</td>
-                      <td className="py-3">{m.thigh_right ? `${m.thigh_right} cm` : "-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
           </div>
         </section>
