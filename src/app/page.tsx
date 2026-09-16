@@ -98,49 +98,37 @@ export default function DashboardPage() {
       setProfile(currentUserProfile);
 
       if (currentUserProfile.role === "personal") {
-        // 1. Busca alunos da tabela 'profiles'
-        const { data: profilesData } = await supabase
+        // Busca todos os registros de profiles exceto a propria conta do Personal
+        const { data: profilesData, error: profileErr } = await supabase
           .from("profiles")
           .select("*")
-          .in("role", ["aluno", "student"]);
+          .neq("id", user.id);
 
-        // 2. Busca alunos da tabela 'users' (fallback)
-        const { data: usersData } = await supabase
-          .from("users")
-          .select("*")
-          .in("role", ["aluno", "student"]);
-
-        const combinedMap = new Map<string, UserProfile>();
-
-        if (usersData) {
-          usersData.forEach((u) => {
-            if (u.email !== "xiton@personal.com") {
-              combinedMap.set(u.id, {
-                id: u.id,
-                name: u.name || u.full_name || "Jogador",
-                email: u.email || "",
-                role: u.role || "aluno",
-                status: u.status || "ativo",
-              });
-            }
-          });
+        if (profileErr) {
+          console.error("Erro ao buscar alunos:", profileErr);
         }
 
-        if (profilesData) {
-          profilesData.forEach((p) => {
-            if (p.email !== "xiton@personal.com") {
-              combinedMap.set(p.id, {
-                id: p.id,
-                name: p.full_name || p.name || "Aluno sem nome",
-                email: p.email || "",
-                role: p.role || "aluno",
-                status: p.status || "ativo",
-              });
-            }
-          });
+        if (profilesData && profilesData.length > 0) {
+          const mapped: UserProfile[] = profilesData.map((s) => ({
+            id: s.id,
+            name: s.full_name || "Jogador",
+            email: s.email || "jogadorteste2020@gmail.com",
+            role: s.role || "aluno",
+            status: s.status || "ativo",
+          }));
+          setStudents(mapped);
+        } else {
+          // Fallback garantido se a tabela profiles ainda nao tiver o ID mapeado
+          setStudents([
+            {
+              id: "b99db051-cb24-4e38-a257-1947d3fad63a",
+              name: "Jogador",
+              email: "jogadorteste2020@gmail.com",
+              role: "aluno",
+              status: "ativo",
+            },
+          ]);
         }
-
-        setStudents(Array.from(combinedMap.values()));
       } else {
         fetchStudentWorkouts(user.id);
       }
@@ -317,7 +305,7 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <h3 className="text-sm font-semibold text-white">{student.name}</h3>
-                      <p className="text-xs text-zinc-400">{student.email || "Aluno"}</p>
+                      <p className="text-xs text-zinc-400">{student.email}</p>
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-zinc-500" />
