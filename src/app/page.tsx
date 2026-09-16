@@ -98,23 +98,49 @@ export default function DashboardPage() {
       setProfile(currentUserProfile);
 
       if (currentUserProfile.role === "personal") {
-        // Busca todos os alunos cadastrados sem filtrar por status estrito
-        const { data: studentsData } = await supabase
+        // 1. Busca alunos da tabela 'profiles'
+        const { data: profilesData } = await supabase
           .from("profiles")
           .select("*")
-          .in("role", ["aluno", "student"])
-          .order("full_name", { ascending: true });
+          .in("role", ["aluno", "student"]);
 
-        if (studentsData) {
-          const mappedStudents: UserProfile[] = studentsData.map((s) => ({
-            id: s.id,
-            name: s.full_name || "Aluno sem nome",
-            email: s.email || "",
-            role: s.role,
-            status: s.status,
-          }));
-          setStudents(mappedStudents);
+        // 2. Busca alunos da tabela 'users' (fallback)
+        const { data: usersData } = await supabase
+          .from("users")
+          .select("*")
+          .in("role", ["aluno", "student"]);
+
+        const combinedMap = new Map<string, UserProfile>();
+
+        if (usersData) {
+          usersData.forEach((u) => {
+            if (u.email !== "xiton@personal.com") {
+              combinedMap.set(u.id, {
+                id: u.id,
+                name: u.name || u.full_name || "Jogador",
+                email: u.email || "",
+                role: u.role || "aluno",
+                status: u.status || "ativo",
+              });
+            }
+          });
         }
+
+        if (profilesData) {
+          profilesData.forEach((p) => {
+            if (p.email !== "xiton@personal.com") {
+              combinedMap.set(p.id, {
+                id: p.id,
+                name: p.full_name || p.name || "Aluno sem nome",
+                email: p.email || "",
+                role: p.role || "aluno",
+                status: p.status || "ativo",
+              });
+            }
+          });
+        }
+
+        setStudents(Array.from(combinedMap.values()));
       } else {
         fetchStudentWorkouts(user.id);
       }
@@ -291,7 +317,7 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <h3 className="text-sm font-semibold text-white">{student.name}</h3>
-                      <p className="text-xs text-zinc-400">{student.email}</p>
+                      <p className="text-xs text-zinc-400">{student.email || "Aluno"}</p>
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-zinc-500" />
