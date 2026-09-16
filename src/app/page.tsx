@@ -66,58 +66,61 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function loadDashboardData() {
-      const { data: { session } } = await supabase.auth.getSession();
+      // 1. Obtém o usuário direto da Auth
+      const { data: { user } } = await supabase.auth.getUser();
 
-      if (!session) {
+      if (!user) {
         router.push("/login");
         return;
       }
 
-      // 1. Busca perfil na tabela 'profiles' padronizada
+      // 2. Busca o perfil usando maybeSingle() para evitar lançar exceção
       const { data: userData } = await supabase
         .from("profiles")
         .select("*")
-        .eq("id", session.user.id)
-        .single();
+        .eq("id", user.id)
+        .maybeSingle();
 
-      if (userData) {
-        // Redireciona se o aluno ainda estiver com cadastro pendente
-        if (userData.status === "pendente") {
-          router.push("/aguardando-aprovacao");
-          return;
+      // Redireciona caso esteja explicitamente pendente
+      if (userData?.status === "pendente") {
+        router.push("/aguardando-aprovacao");
+        return;
+      }
+
+      // Se for a conta do Personal Trainer ou o perfil definir 'personal'
+      const isPersonal = userData?.role === "personal" || user.email === "xiton@personal.com";
+      const determinedRole = isPersonal ? "personal" : (userData?.role || "aluno");
+
+      const currentUserProfile: UserProfile = {
+        id: user.id,
+        name: userData?.full_name || (isPersonal ? "Xiton Personal" : user.email?.split("@")[0] || "Usuário"),
+        email: user.email || "",
+        role: determinedRole as "personal" | "aluno" | "student",
+        status: userData?.status || "ativo",
+      };
+
+      setProfile(currentUserProfile);
+
+      // Carrega dados baseados na role resolvida
+      if (currentUserProfile.role === "personal") {
+        const { data: studentsData } = await supabase
+          .from("profiles")
+          .select("*")
+          .in("role", ["aluno", "student"])
+          .order("full_name", { ascending: true });
+
+        if (studentsData) {
+          const mappedStudents: UserProfile[] = studentsData.map((s) => ({
+            id: s.id,
+            name: s.full_name || "Aluno sem nome",
+            email: s.email || "",
+            role: s.role,
+            status: s.status,
+          }));
+          setStudents(mappedStudents);
         }
-
-        const user: UserProfile = {
-          id: userData.id,
-          name: userData.full_name || session.user.email?.split("@")[0] || "Usuário",
-          email: session.user.email || "",
-          role: userData.role || "aluno",
-          status: userData.status,
-        };
-
-        setProfile(user);
-
-        if (user.role === "personal") {
-          const { data: studentsData } = await supabase
-            .from("profiles")
-            .select("*")
-            .in("role", ["aluno", "student"])
-            .eq("status", "ativo")
-            .order("full_name", { ascending: true });
-
-          if (studentsData) {
-            const mappedStudents: UserProfile[] = studentsData.map((s) => ({
-              id: s.id,
-              name: s.full_name || "Aluno sem nome",
-              email: s.email || "",
-              role: s.role,
-              status: s.status,
-            }));
-            setStudents(mappedStudents);
-          }
-        } else {
-          fetchStudentWorkouts(user.id);
-        }
+      } else {
+        fetchStudentWorkouts(user.id);
       }
 
       setLoading(false);
@@ -272,7 +275,7 @@ export default function DashboardPage() {
 
           {students.length === 0 ? (
             <div className="p-6 text-center bg-zinc-900/50 border border-zinc-800 rounded-xl">
-              <p className="text-xs text-zinc-500">Nenhum aluno ativo cadastrado no momento.</p>
+              <p className="text-xs text-zinc-500">Nenhum aluno cadastrado no momento.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3">
