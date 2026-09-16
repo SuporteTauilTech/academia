@@ -3,7 +3,9 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
-    request: { headers: request.headers },
+    request: {
+      headers: request.headers,
+    },
   })
 
   const supabase = createServerClient(
@@ -11,10 +13,14 @@ export async function middleware(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() { return request.cookies.getAll() },
+        getAll() {
+          return request.cookies.getAll()
+        },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          response = NextResponse.next({ request })
+          response = NextResponse.next({
+            request,
+          })
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
           )
@@ -23,34 +29,33 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
   const pathname = request.nextUrl.pathname
 
-  // Permitir acesso livre a login, cadastro e arquivos estáticos
-  if (!user && !pathname.startsWith('/login') && !pathname.startsWith('/cadastro')) {
+  // Se não estiver logado e tentar acessar rotas protegidas
+  if (!user && pathname !== '/login' && !pathname.startsWith('/auth')) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
+  // Se estiver logado, busca perfil na tabela profiles
   if (user) {
-    // Buscar perfil do usuário no banco
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role, status')
+      .select('status, role')
       .eq('id', user.id)
-      .single()
+      .maybeSingle()
 
-    const role = profile?.role || 'aluno'
-    const status = profile?.status || 'pendente'
-
-    // 1. Redirecionar cadastros pendentes
-    if (status === 'pendente' && pathname !== '/aguardando-aprovacao') {
+    // Só bloqueia se o status for estritamente 'pendente' e não estiver na própria tela de aviso
+    if (profile?.status === 'pendente' && pathname !== '/aguardando-aprovacao') {
       return NextResponse.redirect(new URL('/aguardando-aprovacao', request.url))
     }
 
-    // 2. Restringir acesso de alunos às rotas administrativas
-    const rotasAdmin = ['/exercicios', '/fichas-de-treino', '/alunos']
-    if (role === 'aluno' && rotasAdmin.some(route => pathname.startsWith(route))) {
-      return NextResponse.redirect(new URL('/meu-treino', request.url))
+    // Se estiver ativo ou for personal, não deixa ficar preso na tela de aviso
+    if (profile?.status === 'ativo' && pathname === '/aguardando-aprovacao') {
+      return NextResponse.redirect(new URL('/', request.url))
     }
   }
 
@@ -58,5 +63,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
 }
