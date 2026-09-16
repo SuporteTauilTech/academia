@@ -71,7 +71,7 @@ export default function AddMetricsModal({
     const { error } = await supabase.from("body_metrics").insert([payload]);
 
     if (error) {
-      console.error("Erro ao salvar avaliacao:", error);
+      console.error("Erro ao salvar avaliação:", error);
       alert("Erro ao salvar avaliação física.");
     } else {
       alert("Avaliação física cadastrada com sucesso!");
@@ -84,27 +84,27 @@ export default function AddMetricsModal({
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-2xl p-6 space-y-6 max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center border-b border-zinc-800 pb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-2xl p-6 pt-8 space-y-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-start border-b border-zinc-800 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
               <Activity className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">Nova Avaliação Física</h3>
-              <p className="text-xs text-zinc-400">Aluno: {studentName}</p>
+              <h3 className="text-base font-bold text-white leading-tight">Nova Avaliação Física</h3>
+              <p className="text-xs text-zinc-400 mt-0.5">Aluno: {studentName}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 text-zinc-400 hover:text-white transition-colors"
+            className="p-1.5 text-zinc-400 hover:text-white transition-colors rounded-lg hover:bg-zinc-800"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Composicao Corporal */}
+          {/* Composição Corporal */}
           <div>
             <h4 className="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-3">
               Composição Corporal
@@ -161,7 +161,7 @@ export default function AddMetricsModal({
             </div>
           </div>
 
-          {/* Perimetros / Circunferencias */}
+          {/* Perímetros Corporais */}
           <div>
             <h4 className="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-3">
               Perímetros Corporal (cm)
@@ -278,7 +278,7 @@ export default function AddMetricsModal({
             </div>
           </div>
 
-          {/* Observacoes */}
+          {/* Observações */}
           <div>
             <label className="text-[11px] text-zinc-400 block mb-1">Observações do Personal</label>
             <textarea
@@ -286,7 +286,7 @@ export default function AddMetricsModal({
               value={formData.notes}
               onChange={handleChange}
               rows={3}
-              placeholder="Ex: Boa evolução no percentual de gordura. Foco em hipertropia de braços no próximo mês."
+              placeholder="Ex: Boa evolução no percentual de gordura. Foco em hipertrofia de braços no próximo mês."
               className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-xs text-white focus:border-emerald-500 focus:outline-none resize-none"
             />
           </div>
