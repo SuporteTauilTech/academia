@@ -17,7 +17,7 @@ import {
   Camera,
   X,
   Maximize2,
-  Download,
+  Printer,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -28,7 +28,6 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
-import jsPDF from "jspdf";
 
 interface UserProfile {
   id: string;
@@ -58,7 +57,6 @@ interface WorkoutLog {
 export default function ProgressoPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [isPersonal, setIsPersonal] = useState(false);
   const [students, setStudents] = useState<UserProfile[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string>("");
@@ -159,87 +157,8 @@ export default function ProgressoPage() {
     fetchStudentProgress(studentId);
   }
 
-  async function exportPDF() {
-    setDownloadingPdf(true);
-
-    try {
-      const doc = new jsPDF("p", "mm", "a4");
-      const latest = metrics[0];
-      const dataFormatada = latest
-        ? new Date(latest.created_at).toLocaleDateString("pt-BR")
-        : new Date().toLocaleDateString("pt-BR");
-
-      // Cabecalho do Relatorio
-      doc.setFillColor(16, 185, 129); // Cor Emerald
-      doc.rect(0, 0, 210, 25, "F");
-
-      doc.setTextColor(255, 255, 255);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(16);
-      doc.text("XITON PERSONAL - AVALIAÇÃO FÍSICA", 14, 16);
-
-      // Dados do Aluno
-      doc.setTextColor(30, 41, 59);
-      doc.setFontSize(12);
-      doc.text(`Aluno: ${selectedStudentName}`, 14, 38);
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.text(`Data do Relatório: ${dataFormatada}`, 14, 44);
-      doc.text(`Total de Treinos Concluídos: ${workoutLogs.length}`, 14, 50);
-
-      doc.setDrawColor(226, 232, 240);
-      doc.line(14, 55, 196, 55);
-
-      if (latest) {
-        // Quadro de Métricas Corporais
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(12);
-        doc.text("ÚLTIMA AVALIAÇÃO CORPORAL", 14, 65);
-
-        // Cards das metricas
-        doc.setFillColor(241, 245, 249);
-        doc.roundedRect(14, 70, 42, 25, 3, 3, "F");
-        doc.roundedRect(60, 70, 42, 25, 3, 3, "F");
-        doc.roundedRect(106, 70, 42, 25, 3, 3, "F");
-        doc.roundedRect(152, 70, 44, 25, 3, 3, "F");
-
-        doc.setFontSize(9);
-        doc.setTextColor(100, 116, 139);
-        doc.text("PESO", 18, 77);
-        doc.text("GORDURA (BF)", 64, 77);
-        doc.text("MASSA MAGRA", 110, 77);
-        doc.text("ALTURA", 156, 77);
-
-        doc.setFontSize(11);
-        doc.setTextColor(15, 23, 42);
-        doc.setFont("helvetica", "bold");
-        doc.text(`${latest.weight ? `${latest.weight} kg` : "-"}`, 18, 87);
-        doc.text(`${latest.body_fat ? `${latest.body_fat}%` : "-"}`, 64, 87);
-        doc.text(`${latest.muscle_mass ? `${latest.muscle_mass} kg` : "-"}`, 110, 87);
-        doc.text(`${latest.height ? `${latest.height} cm` : "-"}`, 156, 87);
-
-        // Observacoes
-        if (latest.notes) {
-          doc.setFontSize(10);
-          doc.setTextColor(51, 65, 85);
-          doc.text("Observações do Personal:", 14, 107);
-          doc.setFont("helvetica", "normal");
-          doc.text(latest.notes, 14, 113, { maxWidth: 180 });
-        }
-      }
-
-      // Rodape
-      doc.setFontSize(8);
-      doc.setTextColor(148, 163, 184);
-      doc.text("Gerado por Xiton Personal App", 14, 285);
-
-      doc.save(`Avaliacao_${selectedStudentName.replace(/\s+/g, "_")}.pdf`);
-    } catch (err) {
-      console.error("Erro ao gerar PDF:", err);
-      alert("Erro ao exportar PDF.");
-    } finally {
-      setDownloadingPdf(false);
-    }
+  function handlePrintPDF() {
+    window.print();
   }
 
   if (loading) {
@@ -266,7 +185,7 @@ export default function ProgressoPage() {
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white p-4 sm:p-6 max-w-4xl mx-auto space-y-6 pb-20">
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-800">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-800 print:hidden">
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.push("/")}
@@ -287,16 +206,11 @@ export default function ProgressoPage() {
         <div className="flex items-center gap-2">
           {metrics.length > 0 && (
             <button
-              onClick={exportPDF}
-              disabled={downloadingPdf}
+              onClick={handlePrintPDF}
               className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-xs text-white transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-900/30"
             >
-              {downloadingPdf ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Download className="w-4 h-4" />
-              )}
-              Exportar PDF
+              <Printer className="w-4 h-4" />
+              Salvar PDF / Imprimir
             </button>
           )}
 
@@ -495,7 +409,7 @@ export default function ProgressoPage() {
       {/* Lightbox Modal */}
       {selectedPhoto && (
         <div
-          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 print:hidden"
           onClick={() => setSelectedPhoto(null)}
         >
           <button
