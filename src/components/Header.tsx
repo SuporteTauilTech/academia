@@ -3,12 +3,7 @@
 import { useEffect, useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useRouter, usePathname } from "next/navigation";
-import {
-  Dumbbell,
-  FileText,
-  LineChart,
-  LogOut,
-} from "lucide-react";
+import { Dumbbell, FileText, LineChart, LogOut } from "lucide-react";
 
 export default function Header() {
   const router = useRouter();
@@ -30,6 +25,7 @@ export default function Header() {
       if (user) {
         setUserEmail(user.email || "");
 
+        // Identifica no Supabase se o usuário é Personal Trainer
         const { data: profile } = await supabase
           .from("profiles")
           .select("role")
@@ -51,7 +47,7 @@ export default function Header() {
     router.refresh();
   }
 
-  // Oculta o Header apenas nas telas de login e recuperação de senha
+  // Esconde o Header apenas no Login e no Reset de Senha
   if (pathname === "/login" || pathname === "/reset-password") {
     return null;
   }
@@ -59,7 +55,7 @@ export default function Header() {
   return (
     <header className="w-full bg-zinc-900 border-b border-zinc-800 sticky top-0 z-40">
       <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
-        {/* Nav Links */}
+        {/* Links de Navegação */}
         <nav className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
           {isPersonal ? (
             <>
@@ -109,7 +105,7 @@ export default function Header() {
           </button>
         </nav>
 
-        {/* User Info & Logout */}
+        {/* Botão de Logout com o texto "Sair" e ícone juntos */}
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={handleLogout}
