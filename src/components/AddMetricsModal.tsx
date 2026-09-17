@@ -40,6 +40,14 @@ export default function AddMetricsModal({
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
+  // Converte virgula para ponto e faz o parse de forma segura
+  function parseNumber(value: string): number | null {
+    if (!value || value.trim() === "") return null;
+    const cleanValue = value.replace(",", ".");
+    const parsed = parseFloat(cleanValue);
+    return isNaN(parsed) ? null : parsed;
+  }
+
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) {
@@ -52,19 +60,19 @@ export default function AddMetricsModal({
 
     const payload = {
       student_id: studentId,
-      weight: formData.weight ? parseFloat(formData.weight) : null,
-      height: formData.height ? parseFloat(formData.height) : null,
-      body_fat: formData.body_fat ? parseFloat(formData.body_fat) : null,
-      muscle_mass: formData.muscle_mass ? parseFloat(formData.muscle_mass) : null,
-      chest: formData.chest ? parseFloat(formData.chest) : null,
-      waist: formData.waist ? parseFloat(formData.waist) : null,
-      hips: formData.hips ? parseFloat(formData.hips) : null,
-      arm_left: formData.arm_left ? parseFloat(formData.arm_left) : null,
-      arm_right: formData.arm_right ? parseFloat(formData.arm_right) : null,
-      thigh_left: formData.thigh_left ? parseFloat(formData.thigh_left) : null,
-      thigh_right: formData.thigh_right ? parseFloat(formData.thigh_right) : null,
-      calf_left: formData.calf_left ? parseFloat(formData.calf_left) : null,
-      calf_right: formData.calf_right ? parseFloat(formData.calf_right) : null,
+      weight: parseNumber(formData.weight),
+      height: parseNumber(formData.height),
+      body_fat: parseNumber(formData.body_fat),
+      muscle_mass: parseNumber(formData.muscle_mass),
+      chest: parseNumber(formData.chest),
+      waist: parseNumber(formData.waist),
+      hips: parseNumber(formData.hips),
+      arm_left: parseNumber(formData.arm_left),
+      arm_right: parseNumber(formData.arm_right),
+      thigh_left: parseNumber(formData.thigh_left),
+      thigh_right: parseNumber(formData.thigh_right),
+      calf_left: parseNumber(formData.calf_left),
+      calf_right: parseNumber(formData.calf_right),
       notes: formData.notes || null,
     };
 
@@ -72,7 +80,7 @@ export default function AddMetricsModal({
 
     if (error) {
       console.error("Erro ao salvar avaliação:", error);
-      alert("Erro ao salvar avaliação física.");
+      alert(`Erro ao salvar avaliação física: ${error.message}`);
     } else {
       alert("Avaliação física cadastrada com sucesso!");
       onSuccess();
@@ -97,6 +105,7 @@ export default function AddMetricsModal({
           </div>
           <button
             onClick={onClose}
+            type="button"
             className="p-1.5 text-zinc-400 hover:text-white transition-colors rounded-lg hover:bg-zinc-800"
           >
             <X className="w-5 h-5" />
@@ -113,20 +122,20 @@ export default function AddMetricsModal({
               <div>
                 <label className="text-[11px] text-zinc-400 block mb-1">Peso (kg)</label>
                 <input
-                  type="number"
-                  step="0.1"
+                  type="text"
+                  inputMode="decimal"
                   name="weight"
                   value={formData.weight}
                   onChange={handleChange}
-                  placeholder="Ex: 75.5"
+                  placeholder="Ex: 75,5"
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-xs text-white focus:border-emerald-500 focus:outline-none"
                 />
               </div>
               <div>
                 <label className="text-[11px] text-zinc-400 block mb-1">Altura (cm)</label>
                 <input
-                  type="number"
-                  step="0.1"
+                  type="text"
+                  inputMode="decimal"
                   name="height"
                   value={formData.height}
                   onChange={handleChange}
@@ -137,24 +146,24 @@ export default function AddMetricsModal({
               <div>
                 <label className="text-[11px] text-zinc-400 block mb-1">Gordura (%)</label>
                 <input
-                  type="number"
-                  step="0.1"
+                  type="text"
+                  inputMode="decimal"
                   name="body_fat"
                   value={formData.body_fat}
                   onChange={handleChange}
-                  placeholder="Ex: 15.0"
+                  placeholder="Ex: 15,0"
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-xs text-white focus:border-emerald-500 focus:outline-none"
                 />
               </div>
               <div>
                 <label className="text-[11px] text-zinc-400 block mb-1">Massa Magra (kg)</label>
                 <input
-                  type="number"
-                  step="0.1"
+                  type="text"
+                  inputMode="decimal"
                   name="muscle_mass"
                   value={formData.muscle_mass}
                   onChange={handleChange}
-                  placeholder="Ex: 62.0"
+                  placeholder="Ex: 62,0"
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-xs text-white focus:border-emerald-500 focus:outline-none"
                 />
               </div>
@@ -170,8 +179,8 @@ export default function AddMetricsModal({
               <div>
                 <label className="text-[11px] text-zinc-400 block mb-1">Tórax / Peito</label>
                 <input
-                  type="number"
-                  step="0.1"
+                  type="text"
+                  inputMode="decimal"
                   name="chest"
                   value={formData.chest}
                   onChange={handleChange}
@@ -182,8 +191,8 @@ export default function AddMetricsModal({
               <div>
                 <label className="text-[11px] text-zinc-400 block mb-1">Cintura</label>
                 <input
-                  type="number"
-                  step="0.1"
+                  type="text"
+                  inputMode="decimal"
                   name="waist"
                   value={formData.waist}
                   onChange={handleChange}
@@ -194,8 +203,8 @@ export default function AddMetricsModal({
               <div>
                 <label className="text-[11px] text-zinc-400 block mb-1">Quadril</label>
                 <input
-                  type="number"
-                  step="0.1"
+                  type="text"
+                  inputMode="decimal"
                   name="hips"
                   value={formData.hips}
                   onChange={handleChange}
@@ -206,8 +215,8 @@ export default function AddMetricsModal({
               <div>
                 <label className="text-[11px] text-zinc-400 block mb-1">Braço Esquerdo</label>
                 <input
-                  type="number"
-                  step="0.1"
+                  type="text"
+                  inputMode="decimal"
                   name="arm_left"
                   value={formData.arm_left}
                   onChange={handleChange}
@@ -218,20 +227,20 @@ export default function AddMetricsModal({
               <div>
                 <label className="text-[11px] text-zinc-400 block mb-1">Braço Direito</label>
                 <input
-                  type="number"
-                  step="0.1"
+                  type="text"
+                  inputMode="decimal"
                   name="arm_right"
                   value={formData.arm_right}
                   onChange={handleChange}
-                  placeholder="Ex: 35.5"
+                  placeholder="Ex: 35,5"
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-xs text-white focus:border-emerald-500 focus:outline-none"
                 />
               </div>
               <div>
                 <label className="text-[11px] text-zinc-400 block mb-1">Coxa Esquerda</label>
                 <input
-                  type="number"
-                  step="0.1"
+                  type="text"
+                  inputMode="decimal"
                   name="thigh_left"
                   value={formData.thigh_left}
                   onChange={handleChange}
@@ -242,20 +251,20 @@ export default function AddMetricsModal({
               <div>
                 <label className="text-[11px] text-zinc-400 block mb-1">Coxa Direita</label>
                 <input
-                  type="number"
-                  step="0.1"
+                  type="text"
+                  inputMode="decimal"
                   name="thigh_right"
                   value={formData.thigh_right}
                   onChange={handleChange}
-                  placeholder="Ex: 58.5"
+                  placeholder="Ex: 58,5"
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-xs text-white focus:border-emerald-500 focus:outline-none"
                 />
               </div>
               <div>
                 <label className="text-[11px] text-zinc-400 block mb-1">Panturrilha Esquerda</label>
                 <input
-                  type="number"
-                  step="0.1"
+                  type="text"
+                  inputMode="decimal"
                   name="calf_left"
                   value={formData.calf_left}
                   onChange={handleChange}
@@ -266,8 +275,8 @@ export default function AddMetricsModal({
               <div>
                 <label className="text-[11px] text-zinc-400 block mb-1">Panturrilha Direita</label>
                 <input
-                  type="number"
-                  step="0.1"
+                  type="text"
+                  inputMode="decimal"
                   name="calf_right"
                   value={formData.calf_right}
                   onChange={handleChange}
