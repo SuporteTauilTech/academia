@@ -82,16 +82,13 @@ export default function DashboardPage() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  // Função blindada para buscar os treinos concluídos no dia
   const fetchTodayLogs = useCallback(async (studentId: string) => {
     const todayKey = new Date().toISOString().split("T")[0];
     const storageKey = `xiton_completed_${studentId}_${todayKey}`;
 
-    // 1. Lê do armazenamento do dispositivo imediatamente
     const cached = localStorage.getItem(storageKey);
     let cachedIds: string[] = cached ? JSON.parse(cached) : [];
 
-    // 2. Consulta o Supabase de forma ampla
     const { data: logs } = await supabase
       .from("workout_logs")
       .select("workout_id, created_at")
@@ -142,15 +139,15 @@ export default function DashboardPage() {
 
       if (currentUserProfile.role === "personal") {
         const { data: usersData } = await supabase
-          .from("users")
+          .from("profiles")
           .select("*")
-          .neq("email", "xiton@personal.com");
+          .neq("role", "personal");
 
         if (usersData && usersData.length > 0) {
           const mappedStudents: UserProfile[] = usersData.map((u) => ({
             id: u.id,
-            name: u.name || u.full_name || "Jogador",
-            email: u.email || "jogadorteste2020@gmail.com",
+            name: u.full_name || u.name || "Aluno",
+            email: u.email || "",
             role: u.role || "aluno",
             status: u.status || "ativo",
           }));
@@ -270,16 +267,13 @@ export default function DashboardPage() {
 
     setCompletingWorkoutId(workoutId);
 
-    // 1. Atualiza o estado em memória
     const updated = Array.from(new Set([...completedToday, workoutId]));
     setCompletedToday(updated);
 
-    // 2. Grava no localStorage com a data de hoje
     const todayKey = new Date().toISOString().split("T")[0];
     const storageKey = `xiton_completed_${profile.id}_${todayKey}`;
     localStorage.setItem(storageKey, JSON.stringify(updated));
 
-    // 3. Registra na tabela no Supabase
     try {
       await supabase.from("workout_logs").insert([
         {
@@ -320,12 +314,14 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* Botão de Logout com o nome Sair ao lado do ícone */}
           <button
             onClick={handleSignOut}
-            className="p-2 text-zinc-400 hover:text-red-400 transition-colors rounded-lg hover:bg-zinc-900"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition-colors cursor-pointer"
             title="Sair da conta"
           >
-            <LogOut className="w-5 h-5" />
+            <span>Sair</span>
+            <LogOut className="w-4 h-4" />
           </button>
         </div>
 
@@ -345,6 +341,138 @@ export default function DashboardPage() {
           </button>
         </div>
       </header>
+
+      {/* VISÃO DO PERSONAL TRAINER */}
+      {profile?.role === "personal" && (
+        <section className="space-y-6">
+          <div className="space-y-3">
+            <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-2">
+              <Users className="w-4 h-4 text-emerald-500" /> Meus Alunos ({students.length})
+            </h2>
+
+            {students.length === 0 ? (
+              <div className="p-6 text-center bg-zinc-900/50 border border-zinc-800 rounded-2xl">
+                <p className="text-xs text-zinc-400 font-medium">Nenhum aluno cadastrado no momento.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {students.map((student) => {
+                  const isSelected = selectedStudent?.id === student.id;
+                  return (
+                    <button
+                      key={student.id}
+                      onClick={() => handleSelectStudent(student)}
+                      className={`p-4 rounded-2xl text-left border transition-all flex items-center justify-between ${
+                        isSelected
+                          ? "bg-emerald-500/10 border-emerald-500/40 text-white shadow-lg shadow-emerald-950/40"
+                          : "bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800/80"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2.5 rounded-xl ${isSelected ? "bg-emerald-500 text-black" : "bg-zinc-800 text-zinc-400"}`}>
+                          <UserCheck className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-sm">{student.name}</p>
+                          <p className="text-xs text-zinc-500">{student.email}</p>
+                        </div>
+                      </div>
+                      <ChevronRight className={`w-4 h-4 ${isSelected ? "text-emerald-400" : "text-zinc-600"}`} />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* PAINEL DO ALUNO SELECIONADO */}
+          {selectedStudent && (
+            <div className="space-y-6 pt-4 border-t border-zinc-800">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-900/80 p-4 rounded-2xl border border-zinc-800">
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-emerald-500" />
+                    Gerenciando: {selectedStudent.name}
+                  </h3>
+                  <p className="text-xs text-zinc-400">Monte treinos e acompanhe métricas corporais</p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setIsMetricsModalOpen(true)}
+                    className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-xs font-bold text-white rounded-xl border border-zinc-700 transition-colors"
+                  >
+                    <Plus className="w-4 h-4 text-emerald-400" /> Avaliação
+                  </button>
+                  <button
+                    onClick={() => setIsModalOpen(true)}
+                    className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white rounded-xl shadow-md shadow-emerald-950/50 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" /> Nova Ficha
+                  </button>
+                </div>
+              </div>
+
+              {loadingWorkouts ? (
+                <div className="p-8 text-center">
+                  <Loader2 className="w-6 h-6 text-emerald-500 animate-spin mx-auto" />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-emerald-500" /> Fichas de Treino ({selectedStudentWorkouts.length})
+                  </h4>
+
+                  {selectedStudentWorkouts.length === 0 ? (
+                    <div className="p-6 text-center bg-zinc-900/40 border border-zinc-800/80 rounded-2xl space-y-1">
+                      <p className="text-xs text-zinc-400 font-medium">Este aluno ainda não possui fichas cadastradas.</p>
+                    </div>
+                  ) : (
+                    selectedStudentWorkouts.map((workout) => (
+                      <div key={workout.id} className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-3">
+                        <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                          <h5 className="font-bold text-white text-sm">{workout.title}</h5>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => setEditingWorkout(workout)}
+                              className="p-1.5 text-zinc-400 hover:text-emerald-400 rounded-lg hover:bg-zinc-800 transition-colors"
+                              title="Editar Ficha"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteWorkout(workout.id)}
+                              className="p-1.5 text-zinc-400 hover:text-red-400 rounded-lg hover:bg-zinc-800 transition-colors"
+                              title="Excluir Ficha"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          {workout.exercises && workout.exercises.length > 0 ? (
+                            workout.exercises.map((ex) => (
+                              <div key={ex.id} className="p-2.5 bg-zinc-950/60 rounded-xl border border-zinc-800/60 flex items-center justify-between text-xs">
+                                <span className="font-semibold text-zinc-200">{ex.name}</span>
+                                <span className="text-zinc-400">
+                                  {ex.sets}x {ex.reps} - <strong className="text-emerald-400">{ex.weight} kg</strong>
+                                </span>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-xs text-zinc-500">Nenhum exercício cadastrado nesta ficha.</p>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* VISÃO DO ALUNO */}
       {(profile?.role === "aluno" || profile?.role === "student") && (
@@ -487,7 +615,7 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {/* Modais */}
+      {/* Modais do Personal */}
       {isModalOpen && selectedStudent && (
         <CreateWorkoutModal
           studentId={selectedStudent.id}
