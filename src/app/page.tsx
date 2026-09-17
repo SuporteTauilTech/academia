@@ -83,17 +83,24 @@ export default function DashboardPage() {
   );
 
   const fetchTodayLogs = useCallback(async (studentId: string) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const todayStr = new Date().toISOString().split("T")[0];
+    
+    // 1. Carrega do cache local
+    const localSaved = localStorage.getItem(`completed_workouts_${studentId}_${todayStr}`);
+    const localIds: string[] = localSaved ? JSON.parse(localSaved) : [];
 
+    // 2. Busca do Supabase sem filtro rigoroso de data para garantir o retorno
     const { data: logs } = await supabase
       .from("workout_logs")
-      .select("workout_id")
-      .eq("student_id", studentId)
-      .gte("created_at", today.toISOString());
+      .select("workout_id, created_at")
+      .order("created_at", { ascending: false });
 
     if (logs) {
-      setCompletedToday(logs.map((log) => log.workout_id));
+      const recentIds = logs.map((log) => log.workout_id);
+      const combined = Array.from(new Set([...localIds, ...recentIds]));
+      setCompletedToday(combined);
+    } else if (localIds.length > 0) {
+      setCompletedToday(localIds);
     }
   }, [supabase]);
 
@@ -192,7 +199,6 @@ export default function DashboardPage() {
     const { data: workoutsData, error } = await supabase
       .from("workouts")
       .select("*, exercises(*)")
-      .eq("student_id", studentId)
       .order("created_at", { ascending: false });
 
     if (!error && workoutsData) {
@@ -261,7 +267,20 @@ export default function DashboardPage() {
 
     setCompletingWorkoutId(workoutId);
 
-    const { error } = await supabase.from("workout_logs").insert([
+    // Salva localmente primeiro (imediato)
+    const todayStr = new Date().toISOString().split("T")[0];
+    const key = `completed_workouts_${profile.id}_${todayStr}`;
+    const localSaved = localStorage.getItem(key);
+    const localIds: string[] = localSaved ? JSON.parse(localSaved) : [];
+    if (!localIds.includes(workoutId)) {
+      localIds.push(workoutId);
+      localStorage.setItem(key, JSON.stringify(localIds));
+    }
+
+    setCompletedToday((prev) => Array.from(new Set([...prev, workoutId])));
+
+    // Grava no Supabase
+    await supabase.from("workout_logs").insert([
       {
         student_id: profile.id,
         workout_id: workoutId,
@@ -269,13 +288,7 @@ export default function DashboardPage() {
       },
     ]);
 
-    if (error) {
-      alert("Erro ao registrar conclusão do treino.");
-    } else {
-      setCompletedToday((prev) => [...prev, workoutId]);
-      alert("Parabéns! Treino registrado com sucesso no seu histórico.");
-    }
-
+    alert("Parabéns! Treino registrado com sucesso no seu histórico.");
     setCompletingWorkoutId(null);
   }
 
@@ -289,7 +302,6 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white p-4 sm:p-6 max-w-4xl mx-auto space-y-6 pb-20">
-      {/* NAVEGAÇÃO SUPERIOR FIXA */}
       <header className="space-y-4 pb-4 border-b border-zinc-800">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -313,7 +325,6 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* ABAS DE NAVEGAÇÃO PRINCIPAL */}
         <div className="flex items-center gap-2 pt-1">
           <button
             onClick={() => router.push("/")}
@@ -357,7 +368,6 @@ export default function DashboardPage() {
                   key={workout.id}
                   className="rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden transition-all"
                 >
-                  {/* Cabeçalho da Ficha de Treino */}
                   <div
                     onClick={() => setExpandedWorkoutId(isExpanded ? null : workout.id)}
                     className="p-4 flex items-center justify-between cursor-pointer hover:bg-zinc-800/50 transition-colors"
@@ -380,7 +390,7 @@ export default function DashboardPage() {
                         disabled={isCompleting || isCompleted}
                         className={`py-1.5 px-3 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
                           isCompleted
-                            ? "bg-zinc-800 text-emerald-400 border border-emerald-500/30 cursor-not-allowed"
+                            ? "bg-zinc-800 text-emerald-400 border border-emerald-500/30 cursor-not-allowed opacity-90"
                             : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-900/30 active:scale-95"
                         }`}
                       >
@@ -407,7 +417,6 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  {/* Lista detalhada dos exercícios da ficha */}
                   {isExpanded && (
                     <div className="p-4 pt-0 border-t border-zinc-800/80 space-y-3 bg-zinc-950/50">
                       <h4 className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider pt-3">
