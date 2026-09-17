@@ -111,7 +111,6 @@ export default function ProgressoPage() {
   async function fetchStudentProgress(studentId: string) {
     setLoading(true);
 
-    // 1. Busca todas as avaliações do banco
     const { data: metricsData } = await supabase
       .from("body_metrics")
       .select("*")
@@ -123,7 +122,6 @@ export default function ProgressoPage() {
       setMetrics([]);
     }
 
-    // 2. Busca o total de treinos concluídos sem restrição
     const { data: logsData } = await supabase.from("workout_logs").select("id");
 
     const todayKey = new Date().toISOString().split("T")[0];
@@ -156,22 +154,31 @@ export default function ProgressoPage() {
     );
   }
 
-  // Filtra para encontrar a última métrica que tenha valores reais gravados
-  const validMetric = metrics.find(
-    (m) => m.weight !== null || m.body_fat !== null || m.muscle_mass !== null
-  ) || metrics[0];
+  // Busca o primeiro registro que contenha valores maiores que zero
+  const validMetric =
+    metrics.find(
+      (m) =>
+        (m.weight && Number(m.weight) > 0) ||
+        (m.body_fat && Number(m.body_fat) > 0) ||
+        (m.muscle_mass && Number(m.muscle_mass) > 0) ||
+        (m.height && Number(m.height) > 0)
+    ) || metrics[0];
 
   const chartData = [...metrics]
-    .filter((m) => m.weight !== null || m.body_fat !== null)
+    .filter(
+      (m) =>
+        (m.weight && Number(m.weight) > 0) ||
+        (m.body_fat && Number(m.body_fat) > 0)
+    )
     .reverse()
     .map((m) => ({
       date: new Date(m.created_at).toLocaleDateString("pt-BR", {
         day: "2-digit",
         month: "2-digit",
       }),
-      weight: m.weight || 0,
-      body_fat: m.body_fat || 0,
-      muscle_mass: m.muscle_mass || 0,
+      weight: Number(m.weight) || 0,
+      body_fat: Number(m.body_fat) || 0,
+      muscle_mass: Number(m.muscle_mass) || 0,
     }));
 
   return (
@@ -274,7 +281,7 @@ export default function ProgressoPage() {
                     <Scale className="w-3.5 h-3.5 text-emerald-500" /> Peso
                   </span>
                   <span className="text-lg font-bold text-white">
-                    {validMetric && validMetric.weight !== null ? `${validMetric.weight} kg` : "-"}
+                    {validMetric && Number(validMetric.weight) > 0 ? `${validMetric.weight} kg` : "-"}
                   </span>
                 </div>
                 <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800">
@@ -282,7 +289,7 @@ export default function ProgressoPage() {
                     <TrendingDown className="w-3.5 h-3.5 text-emerald-500" /> Gordura (BF)
                   </span>
                   <span className="text-lg font-bold text-emerald-400">
-                    {validMetric && validMetric.body_fat !== null ? `${validMetric.body_fat}%` : "-"}
+                    {validMetric && Number(validMetric.body_fat) > 0 ? `${validMetric.body_fat}%` : "-"}
                   </span>
                 </div>
                 <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800">
@@ -290,13 +297,13 @@ export default function ProgressoPage() {
                     <Dumbbell className="w-3.5 h-3.5 text-emerald-500" /> Massa Magra
                   </span>
                   <span className="text-lg font-bold text-white">
-                    {validMetric && validMetric.muscle_mass !== null ? `${validMetric.muscle_mass} kg` : "-"}
+                    {validMetric && Number(validMetric.muscle_mass) > 0 ? `${validMetric.muscle_mass} kg` : "-"}
                   </span>
                 </div>
                 <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800">
                   <span className="text-zinc-500 text-xs block">Altura</span>
                   <span className="text-lg font-bold text-white">
-                    {validMetric && validMetric.height !== null ? `${validMetric.height} cm` : "-"}
+                    {validMetric && Number(validMetric.height) > 0 ? `${validMetric.height} cm` : "-"}
                   </span>
                 </div>
               </div>
