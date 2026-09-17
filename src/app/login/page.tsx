@@ -1,204 +1,105 @@
 "use client";
 
-import { useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useEffect, useState } from "react";
+import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
-import { Dumbbell, Mail, ArrowLeft } from "lucide-react";
+import { Dumbbell, Loader2 } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [isRegister, setIsRegister] = useState(false);
-  const [isForgot, setIsForgot] = useState(false);
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [role, setRole] = useState<"personal" | "student">("student");
-
   const [loading, setLoading] = useState(false);
-  const [resetSent, setResetSent] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
-  async function handleAuth(e: React.FormEvent) {
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  useEffect(() => {
+    async function checkUserSession() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (session) {
+        router.push("/");
+      } else {
+        setCheckingAuth(false);
+      }
+    }
+
+    checkUserSession();
+  }, [router, supabase]);
+
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
 
-    if (isForgot) {
-      // Força a URL de redirecionamento para o app local
-      const redirectTo = `${window.location.origin}/reset-password`;
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo,
-      });
-
-      if (!error) {
-        setResetSent(true);
-      } else {
-        alert("Erro ao enviar e-mail: " + error.message);
-      }
+    if (error) {
+      alert(`Erro no login: ${error.message}`);
       setLoading(false);
-      return;
-    }
-
-    if (isRegister) {
-      const { data, error } = await supabase.auth.signUp({ email, password });
-      if (error) {
-        alert("Erro no cadastro: " + error.message);
-      } else if (data.user) {
-        await supabase.from("users").insert([
-          { id: data.user.id, email, name, role }
-        ]);
-        alert("Conta criada com sucesso! Faça login.");
-        setIsRegister(false);
-      }
     } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        alert("Erro ao entrar: " + error.message);
-      } else {
-        router.push("/");
-      }
+      router.push("/");
     }
+  }
 
-    setLoading(false);
+  if (checkingAuth) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-zinc-950 text-white">
+        <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+      </main>
+    );
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-zinc-950 text-white">
-      <div className="w-full max-w-sm p-6 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-5">
-        
-        {/* Cabeçalho */}
-        <div className="flex flex-col items-center gap-2 text-center">
-          <div className="p-3 bg-emerald-500/10 rounded-full border border-emerald-500/20">
-            <Dumbbell className="w-6 h-6 text-emerald-500" />
+    <main className="flex min-h-screen items-center justify-center bg-zinc-950 text-white p-4">
+      <div className="w-full max-w-md p-6 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-6 shadow-xl">
+        <div className="text-center space-y-2">
+          <div className="w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center mx-auto">
+            <Dumbbell className="w-6 h-6" />
           </div>
-          <h1 className="text-xl font-bold">Xiton Personal</h1>
-          <p className="text-xs text-zinc-400">
-            {isForgot
-              ? "Recuperação de conta"
-              : isRegister
-              ? "Crie sua conta para começar"
-              : "Acesse sua conta para continuar"}
-          </p>
+          <h1 className="text-xl font-bold text-white">Xiton Personal</h1>
+          <p className="text-xs text-zinc-400">Acesse sua conta para continuar</p>
         </div>
 
-        {/* Formulário de Recuperação de Senha */}
-        {isForgot ? (
-          resetSent ? (
-            <div className="p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-center space-y-3">
-              <Mail className="w-8 h-8 text-emerald-500 mx-auto" />
-              <p className="text-xs text-emerald-400 font-medium">Link enviado para o seu e-mail!</p>
-              <p className="text-[11px] text-zinc-500">
-                Acesse sua caixa de entrada e clique no link para definir sua nova senha.
-              </p>
-              <button
-                onClick={() => { setIsForgot(false); setResetSent(false); }}
-                className="text-xs text-zinc-400 hover:text-white underline pt-2 block mx-auto"
-              >
-                Voltar para o Login
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={handleAuth} className="space-y-4">
-              <input
-                type="email"
-                placeholder="Seu e-mail cadastrado"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full p-2.5 rounded-lg bg-zinc-950 border border-zinc-800 text-sm text-white focus:outline-none focus:border-emerald-500"
-              />
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium text-sm transition-colors disabled:opacity-50"
-              >
-                {loading ? "Enviando..." : "Enviar Link de Recuperação"}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsForgot(false)}
-                className="w-full text-xs text-zinc-400 hover:text-white flex items-center justify-center gap-1 pt-2"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" /> Voltar para o Login
-              </button>
-            </form>
-          )
-        ) : (
-          /* Formulário de Login / Cadastro */
-          <form onSubmit={handleAuth} className="space-y-4">
-            {isRegister && (
-              <>
-                <input
-                  type="text"
-                  placeholder="Seu nome completo"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  className="w-full p-2.5 rounded-lg bg-zinc-950 border border-zinc-800 text-sm text-white focus:outline-none focus:border-emerald-500"
-                />
-
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as "personal" | "student")}
-                  className="w-full p-2.5 rounded-lg bg-zinc-950 border border-zinc-800 text-sm text-white focus:outline-none focus:border-emerald-500"
-                >
-                  <option value="student">Sou Aluno</option>
-                  <option value="personal">Sou Personal Trainer</option>
-                </select>
-              </>
-            )}
-
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
             <input
               type="email"
-              placeholder="Seu e-mail"
+              placeholder="seu@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full p-2.5 rounded-lg bg-zinc-950 border border-zinc-800 text-sm text-white focus:outline-none focus:border-emerald-500"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-white focus:border-emerald-500 focus:outline-none"
             />
+          </div>
 
+          <div>
             <input
               type="password"
               placeholder="Sua senha"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full p-2.5 rounded-lg bg-zinc-950 border border-zinc-800 text-sm text-white focus:outline-none focus:border-emerald-500"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-white focus:border-emerald-500 focus:outline-none"
             />
+          </div>
 
-            {!isRegister && (
-              <div className="text-right">
-                <button
-                  type="button"
-                  onClick={() => setIsForgot(true)}
-                  className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
-                >
-                  Esqueceu a senha?
-                </button>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium text-sm transition-colors disabled:opacity-50"
-            >
-              {loading ? "Aguarde..." : isRegister ? "Criar Conta" : "Entrar"}
-            </button>
-
-            <div className="text-center pt-2">
-              <button
-                type="button"
-                onClick={() => setIsRegister(!isRegister)}
-                className="text-xs text-zinc-400 hover:text-white transition-colors"
-              >
-                {isRegister ? "Já possui conta? Faça Login" : "Não tem conta? Cadastre-se"}
-              </button>
-            </div>
-          </form>
-        )}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 font-bold text-xs text-white rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/30"
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Entrar"}
+          </button>
+        </form>
       </div>
     </main>
   );
