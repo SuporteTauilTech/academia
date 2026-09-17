@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { Dumbbell, CheckCircle2, Circle, Clock, Repeat, Flame, History, Save } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Dumbbell, CheckCircle2, Circle, Clock, Repeat, Flame, History, Save, LogOut } from "lucide-react";
 
 interface Exercise {
   name: string;
@@ -35,6 +36,7 @@ interface LogHistory {
 }
 
 export default function AlunoPage() {
+  const router = useRouter();
   const [plan, setPlan] = useState<Plan | null>(null);
   const [activeDivision, setActiveDivision] = useState<string | null>(null);
   const [completedItems, setCompletedItems] = useState<Record<string, boolean>>({});
@@ -86,6 +88,11 @@ export default function AlunoPage() {
 
     loadStudentWorkout();
   }, []);
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push("/login");
+  }
 
   async function handleSaveWeight(itemId: string) {
     const weightVal = parseFloat(weights[itemId]);
@@ -142,6 +149,13 @@ export default function AlunoPage() {
         <p className="text-xs text-zinc-500 mt-1 max-w-xs">
           Solicite ao seu personal trainer para cadastrar uma ficha de treino para a sua conta.
         </p>
+        <button
+          onClick={handleLogout}
+          className="mt-6 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 transition-colors"
+        >
+          <span>Sair da conta</span>
+          <LogOut className="w-4 h-4" />
+        </button>
       </main>
     );
   }
@@ -151,9 +165,20 @@ export default function AlunoPage() {
   return (
     <main className="flex min-h-screen flex-col items-center p-4 sm:p-6 bg-zinc-950 text-white pb-12">
       <div className="w-full max-w-md space-y-5">
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950 to-zinc-900 border border-emerald-500/30">
-          <span className="text-[10px] font-semibold tracking-wider text-emerald-400 uppercase">Ficha Ativa</span>
-          <h1 className="text-xl font-bold text-white mt-0.5">{plan.title}</h1>
+        {/* Cabeçalho do Aluno com Botão Sair */}
+        <div className="flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-emerald-950 to-zinc-900 border border-emerald-500/30">
+          <div>
+            <span className="text-[10px] font-semibold tracking-wider text-emerald-400 uppercase">Ficha Ativa</span>
+            <h1 className="text-xl font-bold text-white mt-0.5">{plan.title}</h1>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 transition-colors"
+            title="Sair"
+          >
+            <span>Sair</span>
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
@@ -230,7 +255,6 @@ export default function AlunoPage() {
                       </button>
                     </div>
 
-                    {/* Registro de Carga */}
                     <div className="flex items-center gap-2 pt-2 border-t border-zinc-800/80">
                       <div className="flex-1 flex items-center gap-2 bg-zinc-950 px-3 py-1.5 rounded-lg border border-zinc-800">
                         <input
@@ -260,7 +284,6 @@ export default function AlunoPage() {
                       </button>
                     </div>
 
-                    {/* Painel do Histórico de Cargas */}
                     {isHistoryOpen && (
                       <div className="mt-2 p-2.5 bg-zinc-950 rounded-lg border border-zinc-800/60 space-y-1.5 text-xs">
                         <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">Histórico de Cargas</span>
