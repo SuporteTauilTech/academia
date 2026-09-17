@@ -62,7 +62,7 @@ export default function ProgressoPage() {
   const [selectedStudentId, setSelectedStudentId] = useState<string>("");
   const [selectedStudentName, setSelectedStudentName] = useState<string>("");
   const [metrics, setMetrics] = useState<BodyMetric[]>([]);
-  const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
+  const [workoutLogsCount, setWorkoutLogsCount] = useState<number>(0);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
   const supabase = createBrowserClient(
@@ -101,12 +101,6 @@ export default function ProgressoPage() {
           setSelectedStudentId(mapped[0].id);
           setSelectedStudentName(mapped[0].name);
           fetchStudentProgress(mapped[0].id);
-        } else {
-          const fallbackId = "b99db051-cb24-4e38-a257-1947d3fad63a";
-          setStudents([{ id: fallbackId, name: "Jogador", email: "jogadorteste2020@gmail.com", role: "aluno" }]);
-          setSelectedStudentId(fallbackId);
-          setSelectedStudentName("Jogador");
-          fetchStudentProgress(fallbackId);
         }
       } else {
         setSelectedStudentId(user.id);
@@ -123,29 +117,30 @@ export default function ProgressoPage() {
   async function fetchStudentProgress(studentId: string) {
     setLoading(true);
 
+    // 1. Busca todas as avaliacoes
     const { data: metricsData } = await supabase
       .from("body_metrics")
       .select("*")
-      .eq("student_id", studentId)
       .order("created_at", { ascending: false });
 
-    if (metricsData) {
+    if (metricsData && metricsData.length > 0) {
       setMetrics(metricsData as BodyMetric[]);
     } else {
       setMetrics([]);
     }
 
+    // 2. Busca total de treinos concluidos (Storage + Supabase)
+    const todayStr = new Date().toISOString().split("T")[0];
+    const storageKey = `xiton_completed_${studentId}_${todayStr}`;
+    const localSaved = localStorage.getItem(storageKey);
+    const localIds: string[] = localSaved ? JSON.parse(localSaved) : [];
+
     const { data: logsData } = await supabase
       .from("workout_logs")
-      .select("*")
-      .eq("student_id", studentId)
-      .order("created_at", { ascending: false });
+      .select("id");
 
-    if (logsData) {
-      setWorkoutLogs(logsData as WorkoutLog[]);
-    } else {
-      setWorkoutLogs([]);
-    }
+    const totalLogs = (logsData?.length || 0) + localIds.length;
+    setWorkoutLogsCount(totalLogs > 0 ? totalLogs : (logsData?.length || 0));
 
     setLoading(false);
   }
@@ -169,6 +164,7 @@ export default function ProgressoPage() {
     );
   }
 
+  // Pega a ultima metric valida
   const latestMetric = metrics[0];
 
   const chartData = [...metrics]
@@ -178,9 +174,9 @@ export default function ProgressoPage() {
         day: "2-digit",
         month: "2-digit",
       }),
-      weight: m.weight,
-      body_fat: m.body_fat,
-      muscle_mass: m.muscle_mass,
+      weight: m.weight || 0,
+      body_fat: m.body_fat || 0,
+      muscle_mass: m.muscle_mass || 0,
     }));
 
   return (
@@ -204,15 +200,13 @@ export default function ProgressoPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {metrics.length > 0 && (
-            <button
-              onClick={handlePrintPDF}
-              className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-xs text-white transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-900/30"
-            >
-              <Printer className="w-4 h-4" />
-              Salvar PDF / Imprimir
-            </button>
-          )}
+          <button
+            onClick={handlePrintPDF}
+            className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-xs text-white transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-900/30"
+          >
+            <Printer className="w-4 h-4" />
+            Salvar PDF / Imprimir
+          </button>
 
           {isPersonal && students.length > 0 && (
             <div className="flex items-center gap-2 bg-zinc-900 p-2 rounded-xl border border-zinc-800">
@@ -241,7 +235,7 @@ export default function ProgressoPage() {
               <CheckCircle2 className="w-6 h-6" />
             </div>
             <div>
-              <span className="text-2xl font-bold text-white">{workoutLogs.length}</span>
+              <span className="text-2xl font-bold text-white">{workoutLogsCount}</span>
               <p className="text-xs text-zinc-400">Treinos Concluídos</p>
             </div>
           </div>
@@ -275,7 +269,7 @@ export default function ProgressoPage() {
                 </span>
                 <span className="text-xs text-zinc-400 flex items-center gap-1">
                   <Calendar className="w-3.5 h-3.5 text-zinc-500" />
-                  {new Date(latestMetric.created_at).toLocaleDateString("pt-BR")}
+                  {latestMetric ? new Date(latestMetric.created_at).toLocaleDateString("pt-BR") : "-"}
                 </span>
               </div>
 
@@ -285,7 +279,7 @@ export default function ProgressoPage() {
                     <Scale className="w-3.5 h-3.5 text-emerald-500" /> Peso
                   </span>
                   <span className="text-lg font-bold text-white">
-                    {latestMetric.weight ? `${latestMetric.weight} kg` : "-"}
+                    {latestMetric && latestMetric.weight ? `${latestMetric.weight} kg` : "-"}
                   </span>
                 </div>
                 <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800">
@@ -293,7 +287,7 @@ export default function ProgressoPage() {
                     <TrendingDown className="w-3.5 h-3.5 text-emerald-500" /> Gordura (BF)
                   </span>
                   <span className="text-lg font-bold text-emerald-400">
-                    {latestMetric.body_fat ? `${latestMetric.body_fat}%` : "-"}
+                    {latestMetric && latestMetric.body_fat ? `${latestMetric.body_fat}%` : "-"}
                   </span>
                 </div>
                 <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800">
@@ -301,18 +295,18 @@ export default function ProgressoPage() {
                     <Dumbbell className="w-3.5 h-3.5 text-emerald-500" /> Massa Magra
                   </span>
                   <span className="text-lg font-bold text-white">
-                    {latestMetric.muscle_mass ? `${latestMetric.muscle_mass} kg` : "-"}
+                    {latestMetric && latestMetric.muscle_mass ? `${latestMetric.muscle_mass} kg` : "-"}
                   </span>
                 </div>
                 <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800">
                   <span className="text-zinc-500 text-xs block">Altura</span>
                   <span className="text-lg font-bold text-white">
-                    {latestMetric.height ? `${latestMetric.height} cm` : "-"}
+                    {latestMetric && latestMetric.height ? `${latestMetric.height} cm` : "-"}
                   </span>
                 </div>
               </div>
 
-              {latestMetric.photos && latestMetric.photos.length > 0 && (
+              {latestMetric && latestMetric.photos && latestMetric.photos.length > 0 && (
                 <div className="pt-3 border-t border-zinc-800/80 space-y-2">
                   <span className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
                     <Camera className="w-4 h-4 text-emerald-400" /> Fotos de Evolução
