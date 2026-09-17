@@ -48,12 +48,6 @@ interface BodyMetric {
   created_at: string;
 }
 
-interface WorkoutLog {
-  id: string;
-  workout_title: string;
-  created_at: string;
-}
-
 export default function ProgressoPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -117,7 +111,7 @@ export default function ProgressoPage() {
   async function fetchStudentProgress(studentId: string) {
     setLoading(true);
 
-    // 1. Busca todas as avaliacoes
+    // 1. Busca todas as avaliações do banco
     const { data: metricsData } = await supabase
       .from("body_metrics")
       .select("*")
@@ -129,18 +123,16 @@ export default function ProgressoPage() {
       setMetrics([]);
     }
 
-    // 2. Busca total de treinos concluidos (Storage + Supabase)
-    const todayStr = new Date().toISOString().split("T")[0];
-    const storageKey = `xiton_completed_${studentId}_${todayStr}`;
+    // 2. Busca o total de treinos concluídos sem restrição
+    const { data: logsData } = await supabase.from("workout_logs").select("id");
+
+    const todayKey = new Date().toISOString().split("T")[0];
+    const storageKey = `xiton_completed_${studentId}_${todayKey}`;
     const localSaved = localStorage.getItem(storageKey);
     const localIds: string[] = localSaved ? JSON.parse(localSaved) : [];
 
-    const { data: logsData } = await supabase
-      .from("workout_logs")
-      .select("id");
-
-    const totalLogs = (logsData?.length || 0) + localIds.length;
-    setWorkoutLogsCount(totalLogs > 0 ? totalLogs : (logsData?.length || 0));
+    const totalCount = Math.max(logsData?.length || 0, localIds.length);
+    setWorkoutLogsCount(totalCount > 0 ? totalCount : (logsData?.length || 0));
 
     setLoading(false);
   }
@@ -164,10 +156,13 @@ export default function ProgressoPage() {
     );
   }
 
-  // Pega a ultima metric valida
-  const latestMetric = metrics[0];
+  // Filtra para encontrar a última métrica que tenha valores reais gravados
+  const validMetric = metrics.find(
+    (m) => m.weight !== null || m.body_fat !== null || m.muscle_mass !== null
+  ) || metrics[0];
 
   const chartData = [...metrics]
+    .filter((m) => m.weight !== null || m.body_fat !== null)
     .reverse()
     .map((m) => ({
       date: new Date(m.created_at).toLocaleDateString("pt-BR", {
@@ -269,7 +264,7 @@ export default function ProgressoPage() {
                 </span>
                 <span className="text-xs text-zinc-400 flex items-center gap-1">
                   <Calendar className="w-3.5 h-3.5 text-zinc-500" />
-                  {latestMetric ? new Date(latestMetric.created_at).toLocaleDateString("pt-BR") : "-"}
+                  {validMetric ? new Date(validMetric.created_at).toLocaleDateString("pt-BR") : "-"}
                 </span>
               </div>
 
@@ -279,7 +274,7 @@ export default function ProgressoPage() {
                     <Scale className="w-3.5 h-3.5 text-emerald-500" /> Peso
                   </span>
                   <span className="text-lg font-bold text-white">
-                    {latestMetric && latestMetric.weight ? `${latestMetric.weight} kg` : "-"}
+                    {validMetric && validMetric.weight !== null ? `${validMetric.weight} kg` : "-"}
                   </span>
                 </div>
                 <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800">
@@ -287,7 +282,7 @@ export default function ProgressoPage() {
                     <TrendingDown className="w-3.5 h-3.5 text-emerald-500" /> Gordura (BF)
                   </span>
                   <span className="text-lg font-bold text-emerald-400">
-                    {latestMetric && latestMetric.body_fat ? `${latestMetric.body_fat}%` : "-"}
+                    {validMetric && validMetric.body_fat !== null ? `${validMetric.body_fat}%` : "-"}
                   </span>
                 </div>
                 <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800">
@@ -295,24 +290,24 @@ export default function ProgressoPage() {
                     <Dumbbell className="w-3.5 h-3.5 text-emerald-500" /> Massa Magra
                   </span>
                   <span className="text-lg font-bold text-white">
-                    {latestMetric && latestMetric.muscle_mass ? `${latestMetric.muscle_mass} kg` : "-"}
+                    {validMetric && validMetric.muscle_mass !== null ? `${validMetric.muscle_mass} kg` : "-"}
                   </span>
                 </div>
                 <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800">
                   <span className="text-zinc-500 text-xs block">Altura</span>
                   <span className="text-lg font-bold text-white">
-                    {latestMetric && latestMetric.height ? `${latestMetric.height} cm` : "-"}
+                    {validMetric && validMetric.height !== null ? `${validMetric.height} cm` : "-"}
                   </span>
                 </div>
               </div>
 
-              {latestMetric && latestMetric.photos && latestMetric.photos.length > 0 && (
+              {validMetric && validMetric.photos && validMetric.photos.length > 0 && (
                 <div className="pt-3 border-t border-zinc-800/80 space-y-2">
                   <span className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
                     <Camera className="w-4 h-4 text-emerald-400" /> Fotos de Evolução
                   </span>
                   <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                    {latestMetric.photos.map((photoUrl, i) => (
+                    {validMetric.photos.map((photoUrl, i) => (
                       <button
                         key={i}
                         onClick={() => setSelectedPhoto(photoUrl)}
