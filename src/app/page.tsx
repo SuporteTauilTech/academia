@@ -80,13 +80,15 @@ export default function DashboardPage() {
   );
 
   const fetchTodayLogs = useCallback(async (studentId: string) => {
-    const today = new Date().toISOString().split("T")[0];
+    // Busca logs de hoje considerando o inicio do dia local
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
 
     const { data: logs } = await supabase
       .from("workout_logs")
       .select("workout_id")
       .eq("student_id", studentId)
-      .gte("created_at", `${today}T00:00:00.000Z`);
+      .gte("created_at", startOfDay);
 
     if (logs) {
       setCompletedToday(logs.map((log) => log.workout_id));
@@ -153,8 +155,8 @@ export default function DashboardPage() {
           ]);
         }
       } else {
-        fetchStudentWorkouts(user.id);
-        fetchTodayLogs(user.id);
+        await fetchStudentWorkouts(user.id);
+        await fetchTodayLogs(user.id);
       }
 
       setLoading(false);
@@ -295,7 +297,7 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white p-4 sm:p-6 max-w-4xl mx-auto space-y-6 pb-20">
-      {/* Cabeçalho de Perfil com Menu de Navegação Integrado */}
+      {/* CABEÇALHO COM NAVEGAÇÃO GARANTIDA */}
       <header className="space-y-4 pb-4 border-b border-zinc-800">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -319,8 +321,8 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* Menu de Navegação Horizontal Integrado */}
-        <nav className="flex items-center gap-2 pt-1 overflow-x-auto no-scrollbar">
+        {/* BARRINHA DE BOTÕES DE NAVEGAÇÃO */}
+        <div className="flex items-center gap-2 pt-1 overflow-x-auto no-scrollbar">
           {profile?.role === "personal" ? (
             <>
               <button
@@ -351,7 +353,7 @@ export default function DashboardPage() {
           >
             <LineChart className="w-4 h-4" /> Progresso & Fotos
           </button>
-        </nav>
+        </div>
       </header>
 
       {/* VISÃO DO PERSONAL TRAINER */}
