@@ -1,123 +1,116 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
-import { Dumbbell, ClipboardList, LogOut, LogIn, User, TrendingUp } from "lucide-react";
+import { createBrowserClient } from "@supabase/ssr";
+import { useRouter, usePathname } from "next/navigation";
+import {
+  Dumbbell,
+  FileText,
+  LineChart,
+  LogOut,
+  User,
+} from "lucide-react";
 
-export function Header() {
-  const pathname = usePathname();
+export default function Header() {
   const router = useRouter();
+  const pathname = usePathname();
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [isPersonal, setIsPersonal] = useState(false);
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
   useEffect(() => {
     async function getUser() {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       if (user) {
-        setUserEmail(user.email || null);
+        setUserEmail(user.email || "");
+        setIsPersonal(user.email === "xiton@personal.com");
       }
     }
+
     getUser();
+  }, [supabase]);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUserEmail(session?.user?.email || null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  async function handleSignOut() {
+  async function handleLogout() {
     await supabase.auth.signOut();
-    setUserEmail(null);
     router.push("/login");
+    router.refresh();
+  }
+
+  // Nao exibe o Header no Login, Reset de Senha e na Home (ja tem cabecalho proprio)
+  if (pathname === "/login" || pathname === "/reset-password" || pathname === "/") {
+    return null;
   }
 
   return (
-    <header className="w-full bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
-      {/* Brand Logo */}
-      <Link href="/" className="flex items-center gap-2">
-        <Dumbbell className="w-7 h-7 text-emerald-500" />
-        <span className="font-bold text-xl text-white tracking-tight">Xiton Personal</span>
-      </Link>
-
-      {/* Menu Links */}
-      <nav className="flex items-center gap-1 sm:gap-4">
-        <Link
-          href="/"
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-            pathname === "/" 
-              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
-              : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
-          }`}
-        >
-          <Dumbbell className="w-4 h-4" />
-          <span>Exercícios</span>
-        </Link>
-
-        <Link
-          href="/treinos"
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-            pathname === "/treinos" 
-              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
-              : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
-          }`}
-        >
-          <ClipboardList className="w-4 h-4" />
-          <span>Fichas de Treino</span>
-        </Link>
-
-        <Link
-          href="/aluno"
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-            pathname === "/aluno" 
-              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
-              : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
-          }`}
-        >
-          <User className="w-4 h-4" />
-          <span>Meu Treino</span>
-        </Link>
-
-        <Link
-          href="/progresso"
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-            pathname === "/progresso" 
-              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
-              : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
-          }`}
-        >
-          <TrendingUp className="w-4 h-4" />
-          <span>Progresso</span>
-        </Link>
-      </nav>
-
-      {/* User Actions */}
-      <div className="flex items-center gap-3">
-        {userEmail ? (
-          <div className="flex items-center gap-3">
-            <span className="hidden md:flex items-center gap-1.5 text-xs text-zinc-400">
-              <User className="w-3.5 h-3.5 text-emerald-500" />
-              {userEmail}
-            </span>
+    <header className="w-full bg-zinc-900 border-b border-zinc-800 sticky top-0 z-40">
+      <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
+        {/* Nav Links */}
+        <nav className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+          {isPersonal ? (
+            <>
+              <button
+                onClick={() => router.push("/")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
+                  pathname === "/"
+                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                    : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+                }`}
+              >
+                <Dumbbell className="w-4 h-4" /> Exercícios
+              </button>
+              <button
+                onClick={() => router.push("/fichas-de-treino")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
+                  pathname === "/fichas-de-treino"
+                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                    : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+                }`}
+              >
+                <FileText className="w-4 h-4" /> Fichas
+              </button>
+            </>
+          ) : (
             <button
-              onClick={handleSignOut}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-800 hover:bg-red-950 hover:text-red-400 text-zinc-300 transition-colors border border-zinc-700 hover:border-red-800"
-              title="Sair da conta"
+              onClick={() => router.push("/")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
+                pathname === "/"
+                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                  : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+              }`}
             >
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Sair</span>
+              <Dumbbell className="w-4 h-4" /> Meu Treino
             </button>
-          </div>
-        ) : (
-          <Link
-            href="/login"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
+          )}
+
+          <button
+            onClick={() => router.push("/progresso")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
+              pathname === "/progresso"
+                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+            }`}
           >
-            <LogIn className="w-3.5 h-3.5" />
-            <span>Entrar</span>
-          </Link>
-        )}
+            <LineChart className="w-4 h-4" /> Progresso
+          </button>
+        </nav>
+
+        {/* User Info & Logout */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline">Sair</span>
+          </button>
+        </div>
       </div>
     </header>
   );
