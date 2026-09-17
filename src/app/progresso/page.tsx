@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
 import {
@@ -29,7 +29,6 @@ import {
   CartesianGrid,
 } from "recharts";
 import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 
 interface UserProfile {
   id: string;
@@ -58,7 +57,6 @@ interface WorkoutLog {
 
 export default function ProgressoPage() {
   const router = useRouter();
-  const pdfRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [isPersonal, setIsPersonal] = useState(false);
@@ -162,27 +160,83 @@ export default function ProgressoPage() {
   }
 
   async function exportPDF() {
-    if (!pdfRef.current) return;
     setDownloadingPdf(true);
 
     try {
-      const canvas = await html2canvas(pdfRef.current, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: "#09090b",
-      });
+      const doc = new jsPDF("p", "mm", "a4");
+      const latest = metrics[0];
+      const dataFormatada = latest
+        ? new Date(latest.created_at).toLocaleDateString("pt-BR")
+        : new Date().toLocaleDateString("pt-BR");
 
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      // Cabecalho do Relatorio
+      doc.setFillColor(16, 185, 129); // Cor Emerald
+      doc.rect(0, 0, 210, 25, "F");
 
-      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Avaliacao_${selectedStudentName.replace(/\s+/g, "_")}.pdf`);
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.text("XITON PERSONAL - AVALIAÇÃO FÍSICA", 14, 16);
+
+      // Dados do Aluno
+      doc.setTextColor(30, 41, 59);
+      doc.setFontSize(12);
+      doc.text(`Aluno: ${selectedStudentName}`, 14, 38);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Data do Relatório: ${dataFormatada}`, 14, 44);
+      doc.text(`Total de Treinos Concluídos: ${workoutLogs.length}`, 14, 50);
+
+      doc.setDrawColor(226, 232, 240);
+      doc.line(14, 55, 196, 55);
+
+      if (latest) {
+        // Quadro de Métricas Corporais
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.text("ÚLTIMA AVALIAÇÃO CORPORAL", 14, 65);
+
+        // Cards das metricas
+        doc.setFillColor(241, 245, 249);
+        doc.roundedRect(14, 70, 42, 25, 3, 3, "F");
+        doc.roundedRect(60, 70, 42, 25, 3, 3, "F");
+        doc.roundedRect(106, 70, 42, 25, 3, 3, "F");
+        doc.roundedRect(152, 70, 44, 25, 3, 3, "F");
+
+        doc.setFontSize(9);
+        doc.setTextColor(100, 116, 139);
+        doc.text("PESO", 18, 77);
+        doc.text("GORDURA (BF)", 64, 77);
+        doc.text("MASSA MAGRA", 110, 77);
+        doc.text("ALTURA", 156, 77);
+
+        doc.setFontSize(11);
+        doc.setTextColor(15, 23, 42);
+        doc.setFont("helvetica", "bold");
+        doc.text(`${latest.weight ? `${latest.weight} kg` : "-"}`, 18, 87);
+        doc.text(`${latest.body_fat ? `${latest.body_fat}%` : "-"}`, 64, 87);
+        doc.text(`${latest.muscle_mass ? `${latest.muscle_mass} kg` : "-"}`, 110, 87);
+        doc.text(`${latest.height ? `${latest.height} cm` : "-"}`, 156, 87);
+
+        // Observacoes
+        if (latest.notes) {
+          doc.setFontSize(10);
+          doc.setTextColor(51, 65, 85);
+          doc.text("Observações do Personal:", 14, 107);
+          doc.setFont("helvetica", "normal");
+          doc.text(latest.notes, 14, 113, { maxWidth: 180 });
+        }
+      }
+
+      // Rodape
+      doc.setFontSize(8);
+      doc.setTextColor(148, 163, 184);
+      doc.text("Gerado por Xiton Personal App", 14, 285);
+
+      doc.save(`Avaliacao_${selectedStudentName.replace(/\s+/g, "_")}.pdf`);
     } catch (err) {
       console.error("Erro ao gerar PDF:", err);
-      alert("Erro ao exportar o relatório em PDF. Tente novamente.");
+      alert("Erro ao exportar PDF.");
     } finally {
       setDownloadingPdf(false);
     }
@@ -265,8 +319,8 @@ export default function ProgressoPage() {
         </div>
       </header>
 
-      {/* Conteúdo Exportável */}
-      <div ref={pdfRef} className="space-y-6 p-2 bg-zinc-950 rounded-2xl">
+      {/* Conteúdo da Tela */}
+      <div className="space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center gap-4">
             <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400">
@@ -359,7 +413,6 @@ export default function ProgressoPage() {
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={photoUrl}
-                          crossOrigin="anonymous"
                           alt={`Evolução ${i + 1}`}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
