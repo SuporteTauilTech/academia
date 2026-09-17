@@ -15,6 +15,8 @@ import {
   Users,
   CheckCircle2,
   Camera,
+  X,
+  Maximize2,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -68,6 +70,9 @@ export default function ProgressoPage() {
   const [selectedStudentId, setSelectedStudentId] = useState<string>("");
   const [metrics, setMetrics] = useState<BodyMetric[]>([]);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
+
+  // Estado para a Lightbox de Fotos
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -302,7 +307,7 @@ export default function ProgressoPage() {
               </div>
             </div>
 
-            {/* Galeria da Ultima Avaliacao */}
+            {/* Galeria de Fotos com clique para Lightbox */}
             {latestMetric.photos && latestMetric.photos.length > 0 && (
               <div className="pt-3 border-t border-zinc-800/80 space-y-2">
                 <span className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
@@ -310,20 +315,21 @@ export default function ProgressoPage() {
                 </span>
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                   {latestMetric.photos.map((photoUrl, i) => (
-                    <a
+                    <button
                       key={i}
-                      href={photoUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="aspect-square rounded-xl overflow-hidden border border-zinc-800 hover:border-emerald-500 transition-colors block bg-zinc-950"
+                      onClick={() => setSelectedPhoto(photoUrl)}
+                      className="relative group aspect-square rounded-xl overflow-hidden border border-zinc-800 hover:border-emerald-500 transition-all bg-zinc-950 focus:outline-none"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={photoUrl}
                         alt={`Evolução ${i + 1}`}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
-                    </a>
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Maximize2 className="w-5 h-5 text-white" />
+                      </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -400,6 +406,32 @@ export default function ProgressoPage() {
             </div>
           </div>
         </section>
+      )}
+
+      {/* Modal Lightbox (Foto em Tela Cheia) */}
+      {selectedPhoto && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
+          onClick={() => setSelectedPhoto(null)}
+        >
+          <button
+            onClick={() => setSelectedPhoto(null)}
+            className="absolute top-4 right-4 p-2 bg-zinc-800/80 hover:bg-zinc-700 text-white rounded-full transition-colors z-10"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <div
+            className="relative max-w-3xl max-h-[90vh] w-full flex items-center justify-center overflow-hidden rounded-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={selectedPhoto}
+              alt="Foto de evolução ampliada"
+              className="max-w-full max-h-[85vh] object-contain rounded-xl border border-zinc-800 shadow-2xl"
+            />
+          </div>
+        </div>
       )}
     </main>
   );
