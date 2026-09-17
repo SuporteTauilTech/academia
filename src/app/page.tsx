@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
 import {
@@ -18,6 +18,7 @@ import {
   Check,
   Pencil,
   Activity,
+  FileText,
 } from "lucide-react";
 import CreateWorkoutModal from "@/components/CreateWorkoutModal";
 import EditWorkoutModal from "@/components/EditWorkoutModal";
@@ -77,6 +78,20 @@ export default function DashboardPage() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
+
+  const fetchTodayLogs = useCallback(async (studentId: string) => {
+    const today = new Date().toISOString().split("T")[0];
+
+    const { data: logs } = await supabase
+      .from("workout_logs")
+      .select("workout_id")
+      .eq("student_id", studentId)
+      .gte("created_at", `${today}T00:00:00.000Z`);
+
+    if (logs) {
+      setCompletedToday(logs.map((log) => log.workout_id));
+    }
+  }, [supabase]);
 
   useEffect(() => {
     async function loadDashboardData() {
@@ -146,21 +161,7 @@ export default function DashboardPage() {
     }
 
     loadDashboardData();
-  }, [router]);
-
-  async function fetchTodayLogs(studentId: string) {
-    const today = new Date().toISOString().split("T")[0];
-
-    const { data: logs } = await supabase
-      .from("workout_logs")
-      .select("workout_id")
-      .eq("student_id", studentId)
-      .gte("created_at", `${today}T00:00:00.000Z`);
-
-    if (logs) {
-      setCompletedToday(logs.map((log) => log.workout_id));
-    }
-  }
+  }, [router, fetchTodayLogs, supabase]);
 
   async function fetchSelectedStudentData(studentId: string) {
     setLoadingWorkouts(true);
@@ -293,27 +294,64 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-white p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
-      <header className="flex justify-between items-center pb-4 border-b border-zinc-800">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
-            <Dumbbell className="w-6 h-6 text-emerald-500" />
+    <main className="min-h-screen bg-zinc-950 text-white p-4 sm:p-6 max-w-4xl mx-auto space-y-6 pb-20">
+      {/* Cabeçalho de Perfil com Menu de Navegação Integrado */}
+      <header className="space-y-4 pb-4 border-b border-zinc-800">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
+              <Dumbbell className="w-6 h-6 text-emerald-500" />
+            </div>
+            <div>
+              <h1 className="text-base font-bold">{profile?.name || "Usuário"}</h1>
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-zinc-800 text-emerald-400 font-medium">
+                {profile?.role === "personal" ? "Personal Trainer" : "Aluno"}
+              </span>
+            </div>
           </div>
-          <div>
-            <h1 className="text-base font-bold">{profile?.name || "Usuário"}</h1>
-            <span className="text-[11px] px-2 py-0.5 rounded-full bg-zinc-800 text-emerald-400 font-medium">
-              {profile?.role === "personal" ? "Personal Trainer" : "Aluno"}
-            </span>
-          </div>
+
+          <button
+            onClick={handleSignOut}
+            className="p-2 text-zinc-400 hover:text-red-400 transition-colors rounded-lg hover:bg-zinc-900"
+            title="Sair da conta"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
         </div>
 
-        <button
-          onClick={handleSignOut}
-          className="p-2 text-zinc-400 hover:text-red-400 transition-colors rounded-lg hover:bg-zinc-900"
-          title="Sair da conta"
-        >
-          <LogOut className="w-5 h-5" />
-        </button>
+        {/* Menu de Navegação Horizontal Integrado */}
+        <nav className="flex items-center gap-2 pt-1 overflow-x-auto no-scrollbar">
+          {profile?.role === "personal" ? (
+            <>
+              <button
+                onClick={() => router.push("/")}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+              >
+                <Users className="w-4 h-4" /> Alunos
+              </button>
+              <button
+                onClick={() => router.push("/fichas-de-treino")}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800"
+              >
+                <FileText className="w-4 h-4" /> Fichas
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => router.push("/")}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+            >
+              <Dumbbell className="w-4 h-4" /> Meus Treinos
+            </button>
+          )}
+
+          <button
+            onClick={() => router.push("/progresso")}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 transition-colors"
+          >
+            <LineChart className="w-4 h-4" /> Progresso & Fotos
+          </button>
+        </nav>
       </header>
 
       {/* VISÃO DO PERSONAL TRAINER */}
@@ -358,7 +396,6 @@ export default function DashboardPage() {
 
           {selectedStudent && (
             <div className="mt-6 p-5 rounded-2xl bg-zinc-900 border border-emerald-500/30 space-y-6">
-              {/* Cabecalho de Acoes do Aluno */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800 pb-4">
                 <div>
                   <h3 className="text-base font-bold text-emerald-400">
@@ -384,7 +421,6 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Ultima Avaliacao Fisica */}
               {selectedStudentMetrics.length > 0 && (
                 <div className="p-4 bg-zinc-950 border border-zinc-800 rounded-xl space-y-2">
                   <div className="flex justify-between items-center">
@@ -424,7 +460,6 @@ export default function DashboardPage() {
                 </div>
               )}
 
-              {/* Fichas de Treino */}
               <div className="space-y-3">
                 <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
                   Fichas de Treino Cadastradas
@@ -496,13 +531,13 @@ export default function DashboardPage() {
         <section className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-2">
-              <LineChart className="w-4 h-4 text-emerald-500" /> Minhas Fichas de Treino
+              <Dumbbell className="w-4 h-4 text-emerald-500" /> Minhas Fichas de Treino
             </h2>
             <button
               onClick={() => router.push("/progresso")}
               className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-1"
             >
-              Ver meu histórico completo →
+              Ver progresso completo →
             </button>
           </div>
 
