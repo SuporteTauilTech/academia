@@ -14,6 +14,7 @@ import {
   Dumbbell,
   Users,
   CheckCircle2,
+  Camera,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -49,6 +50,7 @@ interface BodyMetric {
   calf_left: number | null;
   calf_right: number | null;
   notes: string | null;
+  photos?: string[];
   created_at: string;
 }
 
@@ -87,7 +89,6 @@ export default function ProgressoPage() {
       setIsPersonal(personalCheck);
 
       if (personalCheck) {
-        // Busca alunos para o personal selecionar
         const { data: usersData } = await supabase
           .from("users")
           .select("*")
@@ -127,7 +128,6 @@ export default function ProgressoPage() {
   async function fetchStudentProgress(studentId: string) {
     setLoading(true);
 
-    // 1. Busca Métricas Físicas
     const { data: metricsData } = await supabase
       .from("body_metrics")
       .select("*")
@@ -140,7 +140,6 @@ export default function ProgressoPage() {
       setMetrics([]);
     }
 
-    // 2. Busca Frequência/Treinos Concluídos
     const { data: logsData } = await supabase
       .from("workout_logs")
       .select("*")
@@ -198,7 +197,7 @@ export default function ProgressoPage() {
               <LineChartIcon className="w-5 h-5 text-emerald-500" /> Histórico & Progresso
             </h1>
             <p className="text-xs text-zinc-400">
-              Acompanhe a evolução corporal e frequência de treinos.
+              Acompanhe a evolução corporal, fotos e frequência de treinos.
             </p>
           </div>
         </div>
@@ -253,7 +252,7 @@ export default function ProgressoPage() {
             Nenhuma avaliação física registrada para este aluno
           </h3>
           <p className="text-xs text-zinc-500 max-w-md mx-auto">
-            Cadastre uma nova avaliação física no painel para que os gráficos e métricas sejam gerados aqui.
+            Cadastre uma nova avaliação física no painel para que os gráficos e galeria de fotos apareçam aqui.
           </p>
         </div>
       ) : (
@@ -302,6 +301,33 @@ export default function ProgressoPage() {
                 </span>
               </div>
             </div>
+
+            {/* Galeria da Ultima Avaliacao */}
+            {latestMetric.photos && latestMetric.photos.length > 0 && (
+              <div className="pt-3 border-t border-zinc-800/80 space-y-2">
+                <span className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+                  <Camera className="w-4 h-4 text-emerald-400" /> Fotos Recentes de Evolução
+                </span>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                  {latestMetric.photos.map((photoUrl, i) => (
+                    <a
+                      key={i}
+                      href={photoUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="aspect-square rounded-xl overflow-hidden border border-zinc-800 hover:border-emerald-500 transition-colors block bg-zinc-950"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={photoUrl}
+                        alt={`Evolução ${i + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {latestMetric.notes && (
               <div className="pt-2 text-xs text-zinc-400 border-t border-zinc-800/80">

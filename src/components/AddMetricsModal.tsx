@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
-import { X, Loader2, Save, Activity } from "lucide-react";
+import { X, Loader2, Save, Activity, Upload, Camera, Trash2 } from "lucide-react";
 
 interface AddMetricsModalProps {
   studentId: string;
@@ -18,6 +18,9 @@ export default function AddMetricsModal({
   onSuccess,
 }: AddMetricsModalProps) {
   const [loading, setLoading] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photos, setPhotos] = useState<string[]>([]);
+
   const [formData, setFormData] = useState({
     weight: "",
     height: "",
@@ -40,7 +43,6 @@ export default function AddMetricsModal({
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  // Converte virgula para ponto e faz o parse de forma segura
   function parseNumber(value: string): number | null {
     if (!value || value.trim() === "") return null;
     const cleanValue = value.replace(",", ".");
@@ -52,6 +54,41 @@ export default function AddMetricsModal({
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  }
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploadingPhoto(true);
+    const uploadedUrls: string[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${studentId}/${Date.now()}_${i}.${fileExt}`;
+
+      const { data, error } = await supabase.storage
+        .from("evolution-photos")
+        .upload(fileName, file, { upsert: true });
+
+      if (error) {
+        console.error("Erro no upload da foto:", error);
+        alert(`Erro ao carregar imagem: ${error.message}`);
+      } else if (data) {
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from("evolution-photos").getPublicUrl(fileName);
+        uploadedUrls.push(publicUrl);
+      }
+    }
+
+    setPhotos((prev) => [...prev, ...uploadedUrls]);
+    setUploadingPhoto(false);
+  }
+
+  function handleRemovePhoto(indexToRemove: number) {
+    setPhotos((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -74,6 +111,7 @@ export default function AddMetricsModal({
       calf_left: parseNumber(formData.calf_left),
       calf_right: parseNumber(formData.calf_right),
       notes: formData.notes || null,
+      photos: photos,
     };
 
     const { error } = await supabase.from("body_metrics").insert([payload]);
@@ -99,7 +137,9 @@ export default function AddMetricsModal({
               <Activity className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white leading-tight">Nova Avaliação Física</h3>
+              <h3 className="text-base font-bold text-white leading-tight">
+                Nova Avaliação Física
+              </h3>
               <p className="text-xs text-zinc-400 mt-0.5">Aluno: {studentName}</p>
             </div>
           </div>
@@ -156,7 +196,9 @@ export default function AddMetricsModal({
                 />
               </div>
               <div>
-                <label className="text-[11px] text-zinc-400 block mb-1">Massa Magra (kg)</label>
+                <label className="text-[11px] text-zinc-400 block mb-1">
+                  Massa Magra (kg)
+                </label>
                 <input
                   type="text"
                   inputMode="decimal"
@@ -261,7 +303,9 @@ export default function AddMetricsModal({
                 />
               </div>
               <div>
-                <label className="text-[11px] text-zinc-400 block mb-1">Panturrilha Esquerda</label>
+                <label className="text-[11px] text-zinc-400 block mb-1">
+                  Panturrilha Esquerda
+                </label>
                 <input
                   type="text"
                   inputMode="decimal"
@@ -273,7 +317,9 @@ export default function AddMetricsModal({
                 />
               </div>
               <div>
-                <label className="text-[11px] text-zinc-400 block mb-1">Panturrilha Direita</label>
+                <label className="text-[11px] text-zinc-400 block mb-1">
+                  Panturrilha Direita
+                </label>
                 <input
                   type="text"
                   inputMode="decimal"
@@ -287,9 +333,60 @@ export default function AddMetricsModal({
             </div>
           </div>
 
+          {/* Fotos de Evolução */}
+          <div>
+            <h4 className="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <Camera className="w-4 h-4" /> Fotos de Evolução (Frente, Costas, Perfil)
+            </h4>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {photos.map((url, idx) => (
+                <div
+                  key={idx}
+                  className="relative group aspect-square rounded-xl overflow-hidden border border-zinc-800 bg-zinc-950"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={url}
+                    alt={`Foto ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemovePhoto(idx)}
+                    className="absolute top-1.5 right-1.5 p-1 bg-red-600/80 hover:bg-red-600 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+
+              <label className="aspect-square rounded-xl border border-dashed border-zinc-700 hover:border-emerald-500 bg-zinc-950/50 hover:bg-zinc-950 flex flex-col items-center justify-center cursor-pointer transition-colors p-3 text-center">
+                {uploadingPhoto ? (
+                  <Loader2 className="w-5 h-5 text-emerald-400 animate-spin" />
+                ) : (
+                  <>
+                    <Upload className="w-5 h-5 text-zinc-400 mb-1" />
+                    <span className="text-[11px] text-zinc-300 font-medium">Anexar Foto</span>
+                  </>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handlePhotoUpload}
+                  disabled={uploadingPhoto}
+                  className="hidden"
+                />
+              </label>
+            </div>
+          </div>
+
           {/* Observações */}
           <div>
-            <label className="text-[11px] text-zinc-400 block mb-1">Observações do Personal</label>
+            <label className="text-[11px] text-zinc-400 block mb-1">
+              Observações do Personal
+            </label>
             <textarea
               name="notes"
               value={formData.notes}
@@ -310,7 +407,7 @@ export default function AddMetricsModal({
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || uploadingPhoto}
               className="py-2 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium text-xs text-white transition-colors flex items-center gap-2"
             >
               {loading ? (
