@@ -71,6 +71,7 @@ export default function DashboardPage() {
   const [studentWorkouts, setStudentWorkouts] = useState<Workout[]>([]);
   const [savingExerciseId, setSavingExerciseId] = useState<string | null>(null);
   const [completingWorkoutId, setCompletingWorkoutId] = useState<string | null>(null);
+  const [completedToday, setCompletedToday] = useState<string[]>([]);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -138,6 +139,7 @@ export default function DashboardPage() {
         }
       } else {
         fetchStudentWorkouts(user.id);
+        fetchTodayLogs(user.id);
       }
 
       setLoading(false);
@@ -145,6 +147,20 @@ export default function DashboardPage() {
 
     loadDashboardData();
   }, [router]);
+
+  async function fetchTodayLogs(studentId: string) {
+    const today = new Date().toISOString().split("T")[0];
+
+    const { data: logs } = await supabase
+      .from("workout_logs")
+      .select("workout_id")
+      .eq("student_id", studentId)
+      .gte("created_at", `${today}T00:00:00.000Z`);
+
+    if (logs) {
+      setCompletedToday(logs.map((log) => log.workout_id));
+    }
+  }
 
   async function fetchSelectedStudentData(studentId: string) {
     setLoadingWorkouts(true);
@@ -255,6 +271,7 @@ export default function DashboardPage() {
       console.error("Erro ao registrar treino:", error);
       alert("Erro ao registrar conclusão do treino.");
     } else {
+      setCompletedToday((prev) => [...prev, workoutId]);
       alert("Parabéns! Treino registrado com sucesso no seu histórico.");
     }
 
@@ -490,78 +507,94 @@ export default function DashboardPage() {
               </p>
             </div>
           ) : (
-            studentWorkouts.map((workout, wIdx) => (
-              <div
-                key={workout.id}
-                className="p-5 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-4"
-              >
-                <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-                  <h3 className="font-bold text-white text-base flex items-center gap-2">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                    {workout.title}
-                  </h3>
-                  <button
-                    onClick={() => handleCompleteWorkout(workout.title, workout.id)}
-                    disabled={completingWorkoutId === workout.id}
-                    className="py-1 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white flex items-center gap-1 transition-colors"
-                  >
-                    {completingWorkoutId === workout.id ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Check className="w-3.5 h-3.5" />
-                    )}
-                    Concluir Treino
-                  </button>
-                </div>
+            studentWorkouts.map((workout, wIdx) => {
+              const isCompleted = completedToday.includes(workout.id);
+              const isCompleting = completingWorkoutId === workout.id;
 
-                <div className="space-y-3">
-                  {workout.exercises.map((exercise, eIdx) => (
-                    <div
-                      key={exercise.id}
-                      className="p-3 bg-zinc-950 border border-zinc-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              return (
+                <div
+                  key={workout.id}
+                  className="p-5 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-4"
+                >
+                  <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                    <h3 className="font-bold text-white text-base flex items-center gap-2">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                      {workout.title}
+                    </h3>
+                    <button
+                      onClick={() => handleCompleteWorkout(workout.title, workout.id)}
+                      disabled={isCompleting || isCompleted}
+                      className={`py-1.5 px-3.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                        isCompleted
+                          ? "bg-zinc-800 text-emerald-400 border border-emerald-500/30 cursor-not-allowed opacity-90"
+                          : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-900/30 active:scale-95"
+                      }`}
                     >
-                      <div>
-                        <h4 className="text-sm font-semibold text-white">
-                          {exercise.name}
-                        </h4>
-                        <p className="text-xs text-zinc-400">
-                          {exercise.sets} Séries × {exercise.reps} Repetições
-                        </p>
-                      </div>
+                      {isCompleting ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : isCompleted ? (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Concluído Hoje</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Concluir Treino</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
 
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1.5 bg-zinc-900 px-3 py-1.5 rounded-lg border border-zinc-800">
-                          <span className="text-xs text-zinc-500">Carga:</span>
-                          <input
-                            type="number"
-                            value={exercise.weight}
-                            onChange={(e) =>
-                              handleWeightChange(wIdx, eIdx, Number(e.target.value))
-                            }
-                            className="w-14 bg-transparent text-sm font-bold text-emerald-400 text-center focus:outline-none"
-                            min="0"
-                          />
-                          <span className="text-xs text-zinc-400">kg</span>
+                  <div className="space-y-3">
+                    {workout.exercises.map((exercise, eIdx) => (
+                      <div
+                        key={exercise.id}
+                        className="p-3 bg-zinc-950 border border-zinc-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                      >
+                        <div>
+                          <h4 className="text-sm font-semibold text-white">
+                            {exercise.name}
+                          </h4>
+                          <p className="text-xs text-zinc-400">
+                            {exercise.sets} Séries × {exercise.reps} Repetições
+                          </p>
                         </div>
 
-                        <button
-                          onClick={() => handleSaveWeight(exercise)}
-                          disabled={savingExerciseId === exercise.id}
-                          className="p-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors flex items-center justify-center"
-                          title="Salvar nova carga"
-                        >
-                          {savingExerciseId === exercise.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Save className="w-4 h-4" />
-                          )}
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5 bg-zinc-900 px-3 py-1.5 rounded-lg border border-zinc-800">
+                            <span className="text-xs text-zinc-500">Carga:</span>
+                            <input
+                              type="number"
+                              value={exercise.weight}
+                              onChange={(e) =>
+                                handleWeightChange(wIdx, eIdx, Number(e.target.value))
+                              }
+                              className="w-14 bg-transparent text-sm font-bold text-emerald-400 text-center focus:outline-none"
+                              min="0"
+                            />
+                            <span className="text-xs text-zinc-400">kg</span>
+                          </div>
+
+                          <button
+                            onClick={() => handleSaveWeight(exercise)}
+                            disabled={savingExerciseId === exercise.id}
+                            className="p-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors flex items-center justify-center"
+                            title="Salvar nova carga"
+                          >
+                            {savingExerciseId === exercise.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Save className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </section>
       )}
