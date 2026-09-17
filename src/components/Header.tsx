@@ -8,7 +8,6 @@ import {
   FileText,
   LineChart,
   LogOut,
-  User,
 } from "lucide-react";
 
 export default function Header() {
@@ -30,7 +29,16 @@ export default function Header() {
 
       if (user) {
         setUserEmail(user.email || "");
-        setIsPersonal(user.email === "xiton@personal.com");
+
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+
+        if (profile) {
+          setIsPersonal(profile.role === "personal");
+        }
       }
     }
 
@@ -43,8 +51,8 @@ export default function Header() {
     router.refresh();
   }
 
-  // Nao exibe o Header no Login, Reset de Senha e na Home (ja tem cabecalho proprio)
-  if (pathname === "/login" || pathname === "/reset-password" || pathname === "/") {
+  // Oculta o Header apenas nas telas de login e recuperação de senha
+  if (pathname === "/login" || pathname === "/reset-password") {
     return null;
   }
 
@@ -105,10 +113,10 @@ export default function Header() {
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 transition-colors cursor-pointer"
           >
+            <span>Sair</span>
             <LogOut className="w-4 h-4" />
-            <span className="hidden sm:inline">Sair</span>
           </button>
         </div>
       </div>
