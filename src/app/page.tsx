@@ -80,15 +80,14 @@ export default function DashboardPage() {
   );
 
   const fetchTodayLogs = useCallback(async (studentId: string) => {
-    // Busca logs de hoje considerando o inicio do dia local
-    const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     const { data: logs } = await supabase
       .from("workout_logs")
       .select("workout_id")
       .eq("student_id", studentId)
-      .gte("created_at", startOfDay);
+      .gte("created_at", today.toISOString());
 
     if (logs) {
       setCompletedToday(logs.map((log) => log.workout_id));
@@ -297,7 +296,6 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white p-4 sm:p-6 max-w-4xl mx-auto space-y-6 pb-20">
-      {/* CABEÇALHO COM NAVEGAÇÃO GARANTIDA */}
       <header className="space-y-4 pb-4 border-b border-zinc-800">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -321,7 +319,6 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* BARRINHA DE BOTÕES DE NAVEGAÇÃO */}
         <div className="flex items-center gap-2 pt-1 overflow-x-auto no-scrollbar">
           {profile?.role === "personal" ? (
             <>

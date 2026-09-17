@@ -45,15 +45,6 @@ interface BodyMetric {
   height: number | null;
   body_fat: number | null;
   muscle_mass: number | null;
-  chest: number | null;
-  waist: number | null;
-  hips: number | null;
-  arm_left: number | null;
-  arm_right: number | null;
-  thigh_left: number | null;
-  thigh_right: number | null;
-  calf_left: number | null;
-  calf_right: number | null;
   notes: string | null;
   photos?: string[];
   created_at: string;
@@ -115,18 +106,14 @@ export default function ProgressoPage() {
           setSelectedStudentName(mapped[0].name);
           fetchStudentProgress(mapped[0].id);
         } else {
-          const fallback = {
-            id: "b99db051-cb24-4e38-a257-1947d3fad63a",
-            name: "Jogador",
-            email: "jogadorteste2020@gmail.com",
-            role: "aluno",
-          };
-          setStudents([fallback]);
-          setSelectedStudentId(fallback.id);
-          setSelectedStudentName(fallback.name);
-          fetchStudentProgress(fallback.id);
+          const fallbackId = "b99db051-cb24-4e38-a257-1947d3fad63a";
+          setStudents([{ id: fallbackId, name: "Jogador", email: "jogadorteste2020@gmail.com", role: "aluno" }]);
+          setSelectedStudentId(fallbackId);
+          setSelectedStudentName("Jogador");
+          fetchStudentProgress(fallbackId);
         }
       } else {
+        setSelectedStudentId(user.id);
         setSelectedStudentName(user.email?.split("@")[0] || "Aluno");
         fetchStudentProgress(user.id);
       }
@@ -182,6 +169,7 @@ export default function ProgressoPage() {
       const canvas = await html2canvas(pdfRef.current, {
         scale: 2,
         useCORS: true,
+        allowTaint: true,
         backgroundColor: "#09090b",
       });
 
@@ -194,7 +182,7 @@ export default function ProgressoPage() {
       pdf.save(`Avaliacao_${selectedStudentName.replace(/\s+/g, "_")}.pdf`);
     } catch (err) {
       console.error("Erro ao gerar PDF:", err);
-      alert("Erro ao exportar o relatório em PDF.");
+      alert("Erro ao exportar o relatório em PDF. Tente novamente.");
     } finally {
       setDownloadingPdf(false);
     }
@@ -277,9 +265,8 @@ export default function ProgressoPage() {
         </div>
       </header>
 
-      {/* Conteúdo Exportável em PDF */}
+      {/* Conteúdo Exportável */}
       <div ref={pdfRef} className="space-y-6 p-2 bg-zinc-950 rounded-2xl">
-        {/* Resumo de Frequência */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center gap-4">
             <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400">
@@ -310,13 +297,9 @@ export default function ProgressoPage() {
             <h3 className="text-sm font-semibold text-zinc-300">
               Nenhuma avaliação física registrada para este aluno
             </h3>
-            <p className="text-xs text-zinc-500 max-w-md mx-auto">
-              Cadastre uma nova avaliação física no painel para que os gráficos e galeria de fotos apareçam aqui.
-            </p>
           </div>
         ) : (
           <section className="space-y-6">
-            {/* Destaque da Última Avaliação */}
             <div className="p-5 bg-zinc-900 border border-emerald-500/30 rounded-2xl space-y-4">
               <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
                 <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -361,7 +344,6 @@ export default function ProgressoPage() {
                 </div>
               </div>
 
-              {/* Fotos */}
               {latestMetric.photos && latestMetric.photos.length > 0 && (
                 <div className="pt-3 border-t border-zinc-800/80 space-y-2">
                   <span className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
@@ -377,6 +359,7 @@ export default function ProgressoPage() {
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={photoUrl}
+                          crossOrigin="anonymous"
                           alt={`Evolução ${i + 1}`}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
@@ -386,13 +369,6 @@ export default function ProgressoPage() {
                       </button>
                     ))}
                   </div>
-                </div>
-              )}
-
-              {latestMetric.notes && (
-                <div className="pt-2 text-xs text-zinc-400 border-t border-zinc-800/80">
-                  <strong className="text-zinc-300">Observações do Personal: </strong>
-                  {latestMetric.notes}
                 </div>
               )}
             </div>
@@ -463,7 +439,7 @@ export default function ProgressoPage() {
         )}
       </div>
 
-      {/* Modal Lightbox */}
+      {/* Lightbox Modal */}
       {selectedPhoto && (
         <div
           className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
