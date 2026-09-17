@@ -8,7 +8,6 @@ import { Dumbbell, FileText, LineChart, LogOut } from "lucide-react";
 export default function Header() {
   const router = useRouter();
   const pathname = usePathname();
-  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isPersonal, setIsPersonal] = useState(false);
 
   const supabase = createBrowserClient(
@@ -18,14 +17,9 @@ export default function Header() {
 
   useEffect(() => {
     async function getUser() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
 
       if (user) {
-        setUserEmail(user.email || "");
-
-        // Identifica no Supabase se o usuário é Personal Trainer
         const { data: profile } = await supabase
           .from("profiles")
           .select("role")
@@ -44,18 +38,17 @@ export default function Header() {
   async function handleLogout() {
     await supabase.auth.signOut();
     router.push("/login");
-    router.refresh();
   }
 
-  // Esconde o Header apenas no Login e no Reset de Senha
+  // Esconde o Header apenas nas telas de Login e Recuperação
   if (pathname === "/login" || pathname === "/reset-password") {
     return null;
   }
 
   return (
-    <header className="w-full bg-zinc-900 border-b border-zinc-800 sticky top-0 z-40">
+    <header className="w-full bg-zinc-900 border-b border-zinc-800 sticky top-0 z-50">
       <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
-        {/* Links de Navegação */}
+        {/* BOTÕES DE NAVEGAÇÃO PRINCIPAIS */}
         <nav className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
           {isPersonal ? (
             <>
@@ -105,7 +98,7 @@ export default function Header() {
           </button>
         </nav>
 
-        {/* Botão de Logout com o texto "Sair" e ícone juntos */}
+        {/* BOTÃO DE LOGOUT */}
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={handleLogout}
