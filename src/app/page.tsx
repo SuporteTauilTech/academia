@@ -82,25 +82,28 @@ export default function DashboardPage() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
+  // Função blindada para buscar os treinos concluídos no dia
   const fetchTodayLogs = useCallback(async (studentId: string) => {
-    const todayStr = new Date().toISOString().split("T")[0];
-    
-    // 1. Carrega do cache local
-    const localSaved = localStorage.getItem(`completed_workouts_${studentId}_${todayStr}`);
-    const localIds: string[] = localSaved ? JSON.parse(localSaved) : [];
+    const todayKey = new Date().toISOString().split("T")[0];
+    const storageKey = `xiton_completed_${studentId}_${todayKey}`;
 
-    // 2. Busca do Supabase sem filtro rigoroso de data para garantir o retorno
+    // 1. Lê do armazenamento do dispositivo imediatamente
+    const cached = localStorage.getItem(storageKey);
+    let cachedIds: string[] = cached ? JSON.parse(cached) : [];
+
+    // 2. Consulta o Supabase de forma ampla
     const { data: logs } = await supabase
       .from("workout_logs")
       .select("workout_id, created_at")
       .order("created_at", { ascending: false });
 
-    if (logs) {
-      const recentIds = logs.map((log) => log.workout_id);
-      const combined = Array.from(new Set([...localIds, ...recentIds]));
-      setCompletedToday(combined);
-    } else if (localIds.length > 0) {
-      setCompletedToday(localIds);
+    if (logs && logs.length > 0) {
+      const dbWorkoutIds = logs.map((log) => log.workout_id);
+      const unified = Array.from(new Set([...cachedIds, ...dbWorkoutIds]));
+      setCompletedToday(unified);
+      localStorage.setItem(storageKey, JSON.stringify(unified));
+    } else {
+      setCompletedToday(cachedIds);
     }
   }, [supabase]);
 
@@ -267,28 +270,29 @@ export default function DashboardPage() {
 
     setCompletingWorkoutId(workoutId);
 
-    // Salva localmente primeiro (imediato)
-    const todayStr = new Date().toISOString().split("T")[0];
-    const key = `completed_workouts_${profile.id}_${todayStr}`;
-    const localSaved = localStorage.getItem(key);
-    const localIds: string[] = localSaved ? JSON.parse(localSaved) : [];
-    if (!localIds.includes(workoutId)) {
-      localIds.push(workoutId);
-      localStorage.setItem(key, JSON.stringify(localIds));
+    // 1. Atualiza o estado em memória
+    const updated = Array.from(new Set([...completedToday, workoutId]));
+    setCompletedToday(updated);
+
+    // 2. Grava no localStorage com a data de hoje
+    const todayKey = new Date().toISOString().split("T")[0];
+    const storageKey = `xiton_completed_${profile.id}_${todayKey}`;
+    localStorage.setItem(storageKey, JSON.stringify(updated));
+
+    // 3. Registra na tabela no Supabase
+    try {
+      await supabase.from("workout_logs").insert([
+        {
+          student_id: profile.id,
+          workout_id: workoutId,
+          workout_title: workoutTitle,
+        },
+      ]);
+    } catch (err) {
+      console.error("Erro ao sincronizar log com Supabase:", err);
     }
 
-    setCompletedToday((prev) => Array.from(new Set([...prev, workoutId])));
-
-    // Grava no Supabase
-    await supabase.from("workout_logs").insert([
-      {
-        student_id: profile.id,
-        workout_id: workoutId,
-        workout_title: workoutTitle,
-      },
-    ]);
-
-    alert("Parabéns! Treino registrado com sucesso no seu histórico.");
+    alert("Parabéns! Treino registrado com sucesso.");
     setCompletingWorkoutId(null);
   }
 
@@ -325,6 +329,7 @@ export default function DashboardPage() {
           </button>
         </div>
 
+        {/* NAVEGAÇÃO SUPERIOR */}
         <div className="flex items-center gap-2 pt-1">
           <button
             onClick={() => router.push("/")}
