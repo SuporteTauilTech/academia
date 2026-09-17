@@ -255,8 +255,14 @@ export default function DashboardPage() {
     setSavingExerciseId(null);
   }
 
-  async function handleCompleteWorkout(workoutTitle: string, workoutId: string) {
+  async function handleCompleteWorkout(
+    workoutTitle: string,
+    workoutId: string,
+    e?: React.MouseEvent
+  ) {
+    if (e) e.preventDefault();
     if (!profile) return;
+
     setCompletingWorkoutId(workoutId);
 
     const { error } = await supabase.from("workout_logs").insert([
@@ -522,7 +528,7 @@ export default function DashboardPage() {
                       {workout.title}
                     </h3>
                     <button
-                      onClick={() => handleCompleteWorkout(workout.title, workout.id)}
+                      onClick={(e) => handleCompleteWorkout(workout.title, workout.id, e)}
                       disabled={isCompleting || isCompleted}
                       className={`py-1.5 px-3.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
                         isCompleted

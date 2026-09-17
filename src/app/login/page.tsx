@@ -24,7 +24,7 @@ export default function LoginPage() {
       } = await supabase.auth.getSession();
 
       if (session) {
-        router.push("/");
+        router.replace("/");
       } else {
         setCheckingAuth(false);
       }
@@ -46,7 +46,7 @@ export default function LoginPage() {
       alert(`Erro no login: ${error.message}`);
       setLoading(false);
     } else {
-      router.push("/");
+      router.replace("/");
     }
   }
 
