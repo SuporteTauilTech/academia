@@ -154,7 +154,6 @@ export default function ProgressoPage() {
     );
   }
 
-  // Busca o primeiro registro que contenha valores maiores que zero
   const validMetric =
     metrics.find(
       (m) =>
@@ -182,251 +181,298 @@ export default function ProgressoPage() {
     }));
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-white p-4 sm:p-6 max-w-4xl mx-auto space-y-6 pb-20">
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-800 print:hidden">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.push("/")}
-            className="p-2 text-zinc-400 hover:text-white bg-zinc-900 rounded-xl border border-zinc-800 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h1 className="text-base font-bold flex items-center gap-2">
-              <LineChartIcon className="w-5 h-5 text-emerald-500" /> Histórico & Progresso
-            </h1>
-            <p className="text-xs text-zinc-400">
-              Acompanhe a evolução corporal, fotos e frequência de treinos.
-            </p>
-          </div>
-        </div>
+    <>
+      {/* Estilos CSS dedicados exclusivamente para a impressão / PDF */}
+      <style jsx global>{`
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 12mm;
+          }
+          body {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          main {
+            padding: 0 !important;
+            max-width: 100% !important;
+            background: transparent !important;
+          }
+          .print-container {
+            border: none !important;
+            background: transparent !important;
+            color: #000000 !important;
+          }
+          .print-card {
+            background-color: #ffffff !important;
+            border: 1px solid #e4e4e7 !important;
+            color: #000000 !important;
+            box-shadow: none !important;
+            page-break-inside: avoid;
+          }
+          .print-text-dark {
+            color: #09090b !important;
+          }
+          .print-text-muted {
+            color: #71717a !important;
+          }
+          .recharts-cartesian-grid-line {
+            stroke: #e4e4e7 !important;
+          }
+          .recharts-text {
+            fill: #52525b !important;
+          }
+        }
+      `}</style>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handlePrintPDF}
-            className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-xs text-white transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-900/30"
-          >
-            <Printer className="w-4 h-4" />
-            Salvar PDF / Imprimir
-          </button>
-
-          {isPersonal && students.length > 0 && (
-            <div className="flex items-center gap-2 bg-zinc-900 p-2 rounded-xl border border-zinc-800">
-              <Users className="w-4 h-4 text-emerald-400 ml-1" />
-              <select
-                value={selectedStudentId}
-                onChange={(e) => handleSelectStudent(e.target.value)}
-                className="bg-transparent text-xs text-white font-semibold focus:outline-none cursor-pointer pr-2"
-              >
-                {students.map((s) => (
-                  <option key={s.id} value={s.id} className="bg-zinc-900 text-white">
-                    Aluno: {s.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-        </div>
-      </header>
-
-      {/* Conteúdo da Tela */}
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center gap-4">
-            <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400">
-              <CheckCircle2 className="w-6 h-6" />
-            </div>
+      <main className="min-h-screen bg-zinc-950 text-white p-4 sm:p-6 max-w-4xl mx-auto space-y-6 pb-20 print:bg-white print:text-black print:p-0 print:m-0">
+        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-800 print:hidden">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.push("/")}
+              className="p-2 text-zinc-400 hover:text-white bg-zinc-900 rounded-xl border border-zinc-800 transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
             <div>
-              <span className="text-2xl font-bold text-white">{workoutLogsCount}</span>
-              <p className="text-xs text-zinc-400">Treinos Concluídos</p>
+              <h1 className="text-base font-bold flex items-center gap-2">
+                <LineChartIcon className="w-5 h-5 text-emerald-500" /> Histórico & Progresso
+              </h1>
+              <p className="text-xs text-zinc-400">
+                Acompanhe a evolução corporal, fotos e frequência de treinos.
+              </p>
             </div>
           </div>
 
-          <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center gap-4">
-            <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400">
-              <Activity className="w-6 h-6" />
-            </div>
-            <div>
-              <span className="text-sm font-bold text-white">
-                {metrics.length > 0 ? `${metrics.length} Avaliação(ões)` : "Sem avaliações"}
-              </span>
-              <p className="text-xs text-zinc-400">Status de Progresso Físico</p>
-            </div>
-          </div>
-        </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePrintPDF}
+              className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-xs text-white transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-900/30"
+            >
+              <Printer className="w-4 h-4" />
+              Salvar PDF / Imprimir
+            </button>
 
-        {metrics.length === 0 ? (
-          <div className="p-8 text-center bg-zinc-900/50 border border-zinc-800 rounded-2xl space-y-3">
-            <Activity className="w-10 h-10 text-zinc-600 mx-auto" />
-            <h3 className="text-sm font-semibold text-zinc-300">
-              Nenhuma avaliação física registrada para este aluno
-            </h3>
-          </div>
-        ) : (
-          <section className="space-y-6">
-            <div className="p-5 bg-zinc-900 border border-emerald-500/30 rounded-2xl space-y-4">
-              <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
-                <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <Activity className="w-4 h-4" /> Relatório de Avaliação Física - {selectedStudentName}
-                </span>
-                <span className="text-xs text-zinc-400 flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5 text-zinc-500" />
-                  {validMetric ? new Date(validMetric.created_at).toLocaleDateString("pt-BR") : "-"}
-                </span>
+            {isPersonal && students.length > 0 && (
+              <div className="flex items-center gap-2 bg-zinc-900 p-2 rounded-xl border border-zinc-800">
+                <Users className="w-4 h-4 text-emerald-400 ml-1" />
+                <select
+                  value={selectedStudentId}
+                  onChange={(e) => handleSelectStudent(e.target.value)}
+                  className="bg-transparent text-xs text-white font-semibold focus:outline-none cursor-pointer pr-2"
+                >
+                  {students.map((s) => (
+                    <option key={s.id} value={s.id} className="bg-zinc-900 text-white">
+                      Aluno: {s.name}
+                    </option>
+                  ))}
+                </select>
               </div>
+            )}
+          </div>
+        </header>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800">
-                  <span className="text-zinc-500 text-xs block flex items-center gap-1">
-                    <Scale className="w-3.5 h-3.5 text-emerald-500" /> Peso
-                  </span>
-                  <span className="text-lg font-bold text-white">
-                    {validMetric && Number(validMetric.weight) > 0 ? `${validMetric.weight} kg` : "-"}
-                  </span>
-                </div>
-                <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800">
-                  <span className="text-zinc-500 text-xs block flex items-center gap-1">
-                    <TrendingDown className="w-3.5 h-3.5 text-emerald-500" /> Gordura (BF)
-                  </span>
-                  <span className="text-lg font-bold text-emerald-400">
-                    {validMetric && Number(validMetric.body_fat) > 0 ? `${validMetric.body_fat}%` : "-"}
-                  </span>
-                </div>
-                <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800">
-                  <span className="text-zinc-500 text-xs block flex items-center gap-1">
-                    <Dumbbell className="w-3.5 h-3.5 text-emerald-500" /> Massa Magra
-                  </span>
-                  <span className="text-lg font-bold text-white">
-                    {validMetric && Number(validMetric.muscle_mass) > 0 ? `${validMetric.muscle_mass} kg` : "-"}
-                  </span>
-                </div>
-                <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800">
-                  <span className="text-zinc-500 text-xs block">Altura</span>
-                  <span className="text-lg font-bold text-white">
-                    {validMetric && Number(validMetric.height) > 0 ? `${validMetric.height} cm` : "-"}
-                  </span>
-                </div>
+        {/* Conteúdo da Tela */}
+        <div className="space-y-6 print:space-y-4">
+          <div className="grid grid-cols-2 gap-4 print:gap-3">
+            <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center gap-4 print-card">
+              <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400 print:bg-emerald-50">
+                <CheckCircle2 className="w-6 h-6 text-emerald-500" />
               </div>
+              <div>
+                <span className="text-2xl font-bold text-white print-text-dark">{workoutLogsCount}</span>
+                <p className="text-xs text-zinc-400 print-text-muted">Treinos Concluídos</p>
+              </div>
+            </div>
 
-              {validMetric && validMetric.photos && validMetric.photos.length > 0 && (
-                <div className="pt-3 border-t border-zinc-800/80 space-y-2">
-                  <span className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
-                    <Camera className="w-4 h-4 text-emerald-400" /> Fotos de Evolução
+            <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center gap-4 print-card">
+              <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400 print:bg-emerald-50">
+                <Activity className="w-6 h-6 text-emerald-500" />
+              </div>
+              <div>
+                <span className="text-sm font-bold text-white print-text-dark">
+                  {metrics.length > 0 ? `${metrics.length} Avaliação(ões)` : "Sem avaliações"}
+                </span>
+                <p className="text-xs text-zinc-400 print-text-muted">Status de Progresso Físico</p>
+              </div>
+            </div>
+          </div>
+
+          {metrics.length === 0 ? (
+            <div className="p-8 text-center bg-zinc-900/50 border border-zinc-800 rounded-2xl space-y-3 print-card">
+              <Activity className="w-10 h-10 text-zinc-600 mx-auto" />
+              <h3 className="text-sm font-semibold text-zinc-300 print-text-dark">
+                Nenhuma avaliação física registrada para este aluno
+              </h3>
+            </div>
+          ) : (
+            <section className="space-y-6 print:space-y-4">
+              <div className="p-5 bg-zinc-900 border border-emerald-500/30 rounded-2xl space-y-4 print-card">
+                <div className="flex justify-between items-center border-b border-zinc-800 pb-3 print:border-zinc-200">
+                  <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5 print:text-emerald-700">
+                    <Activity className="w-4 h-4" /> Relatório de Avaliação Física - {selectedStudentName}
                   </span>
-                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                    {validMetric.photos.map((photoUrl, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setSelectedPhoto(photoUrl)}
-                        className="relative group aspect-square rounded-xl overflow-hidden border border-zinc-800 hover:border-emerald-500 transition-all bg-zinc-950 focus:outline-none"
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={photoUrl}
-                          alt={`Evolução ${i + 1}`}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <Maximize2 className="w-5 h-5 text-white" />
-                        </div>
-                      </button>
-                    ))}
+                  <span className="text-xs text-zinc-400 flex items-center gap-1 print-text-muted">
+                    <Calendar className="w-3.5 h-3.5 text-zinc-500" />
+                    {validMetric ? new Date(validMetric.created_at).toLocaleDateString("pt-BR") : "-"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-4 gap-3 print:gap-2">
+                  <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 print-card">
+                    <span className="text-zinc-500 text-xs block flex items-center gap-1 print-text-muted">
+                      <Scale className="w-3.5 h-3.5 text-emerald-500" /> Peso
+                    </span>
+                    <span className="text-lg font-bold text-white print-text-dark">
+                      {validMetric && Number(validMetric.weight) > 0 ? `${validMetric.weight} kg` : "-"}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 print-card">
+                    <span className="text-zinc-500 text-xs block flex items-center gap-1 print-text-muted">
+                      <TrendingDown className="w-3.5 h-3.5 text-emerald-500" /> Gordura (BF)
+                    </span>
+                    <span className="text-lg font-bold text-emerald-400 print:text-emerald-700">
+                      {validMetric && Number(validMetric.body_fat) > 0 ? `${validMetric.body_fat}%` : "-"}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 print-card">
+                    <span className="text-zinc-500 text-xs block flex items-center gap-1 print-text-muted">
+                      <Dumbbell className="w-3.5 h-3.5 text-emerald-500" /> Massa Magra
+                    </span>
+                    <span className="text-lg font-bold text-white print-text-dark">
+                      {validMetric && Number(validMetric.muscle_mass) > 0 ? `${validMetric.muscle_mass} kg` : "-"}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 print-card">
+                    <span className="text-zinc-500 text-xs block print-text-muted">Altura</span>
+                    <span className="text-lg font-bold text-white print-text-dark">
+                      {validMetric && Number(validMetric.height) > 0 ? `${validMetric.height} cm` : "-"}
+                    </span>
                   </div>
                 </div>
-              )}
-            </div>
 
-            {/* Gráficos */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="p-5 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-4">
-                <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
-                  <Scale className="w-4 h-4 text-emerald-400" /> Evolução de Peso (kg)
-                </h3>
-                <div className="h-48 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                      <XAxis dataKey="date" stroke="#71717a" fontSize={10} />
-                      <YAxis stroke="#71717a" fontSize={10} domain={["auto", "auto"]} />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "#18181b",
-                          borderColor: "#27272a",
-                          borderRadius: "8px",
-                          fontSize: "12px",
-                        }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="weight"
-                        stroke="#10b981"
-                        strokeWidth={2.5}
-                        dot={{ fill: "#10b981", r: 4 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
+                {validMetric && validMetric.photos && validMetric.photos.length > 0 && (
+                  <div className="pt-3 border-t border-zinc-800/80 space-y-2 print:border-zinc-200">
+                    <span className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5 print-text-dark">
+                      <Camera className="w-4 h-4 text-emerald-400 print:text-emerald-700" /> Fotos de Evolução
+                    </span>
+                    <div className="grid grid-cols-4 gap-3 print:gap-2">
+                      {validMetric.photos.map((photoUrl, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setSelectedPhoto(photoUrl)}
+                          className="relative group aspect-square rounded-xl overflow-hidden border border-zinc-800 hover:border-emerald-500 transition-all bg-zinc-950 focus:outline-none print-card"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={photoUrl}
+                            alt={`Evolução ${i + 1}`}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center print:hidden">
+                            <Maximize2 className="w-5 h-5 text-white" />
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="p-5 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-4">
-                <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
-                  <TrendingDown className="w-4 h-4 text-emerald-400" /> Evolução de Gordura (%)
-                </h3>
-                <div className="h-48 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                      <XAxis dataKey="date" stroke="#71717a" fontSize={10} />
-                      <YAxis stroke="#71717a" fontSize={10} domain={["auto", "auto"]} />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "#18181b",
-                          borderColor: "#27272a",
-                          borderRadius: "8px",
-                          fontSize: "12px",
-                        }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="body_fat"
-                        stroke="#34d399"
-                        strokeWidth={2.5}
-                        dot={{ fill: "#34d399", r: 4 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+              {/* Gráficos com margens controladas para o A4 */}
+              <div className="grid grid-cols-2 gap-4 print:gap-3">
+                <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-3 print-card">
+                  <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2 print-text-dark">
+                    <Scale className="w-4 h-4 text-emerald-400 print:text-emerald-700" /> Evolução de Peso (kg)
+                  </h3>
+                  <div className="h-44 w-full">
+                    <ResponsiveContainer width="99%" height="100%">
+                      <LineChart data={chartData} margin={{ top: 5, right: 15, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                        <XAxis dataKey="date" stroke="#71717a" fontSize={10} />
+                        <YAxis stroke="#71717a" fontSize={10} domain={["auto", "auto"]} />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "#18181b",
+                            borderColor: "#27272a",
+                            borderRadius: "8px",
+                            fontSize: "12px",
+                          }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="weight"
+                          stroke="#10b981"
+                          strokeWidth={2.5}
+                          dot={{ fill: "#10b981", r: 4 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-3 print-card">
+                  <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2 print-text-dark">
+                    <TrendingDown className="w-4 h-4 text-emerald-400 print:text-emerald-700" /> Evolução de Gordura (%)
+                  </h3>
+                  <div className="h-44 w-full">
+                    <ResponsiveContainer width="99%" height="100%">
+                      <LineChart data={chartData} margin={{ top: 5, right: 15, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                        <XAxis dataKey="date" stroke="#71717a" fontSize={10} />
+                        <YAxis stroke="#71717a" fontSize={10} domain={["auto", "auto"]} />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "#18181b",
+                            borderColor: "#27272a",
+                            borderRadius: "8px",
+                            fontSize: "12px",
+                          }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="body_fat"
+                          stroke="#059669"
+                          strokeWidth={2.5}
+                          dot={{ fill: "#059669", r: 4 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
-        )}
-      </div>
-
-      {/* Lightbox Modal */}
-      {selectedPhoto && (
-        <div
-          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 print:hidden"
-          onClick={() => setSelectedPhoto(null)}
-        >
-          <button
-            onClick={() => setSelectedPhoto(null)}
-            className="absolute top-4 right-4 p-2 bg-zinc-800/80 hover:bg-zinc-700 text-white rounded-full transition-colors z-10"
-          >
-            <X className="w-6 h-6" />
-          </button>
-          <div
-            className="relative max-w-3xl max-h-[90vh] w-full flex items-center justify-center overflow-hidden rounded-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={selectedPhoto}
-              alt="Foto de evolução ampliada"
-              className="max-w-full max-h-[85vh] object-contain rounded-xl border border-zinc-800 shadow-2xl"
-            />
-          </div>
+            </section>
+          )}
         </div>
-      )}
-    </main>
+
+        {/* Lightbox Modal */}
+        {selectedPhoto && (
+          <div
+            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 print:hidden"
+            onClick={() => setSelectedPhoto(null)}
+          >
+            <button
+              onClick={() => setSelectedPhoto(null)}
+              className="absolute top-4 right-4 p-2 bg-zinc-800/80 hover:bg-zinc-700 text-white rounded-full transition-colors z-10"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <div
+              className="relative max-w-3xl max-h-[90vh] w-full flex items-center justify-center overflow-hidden rounded-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={selectedPhoto}
+                alt="Foto de evolução ampliada"
+                className="max-w-full max-h-[85vh] object-contain rounded-xl border border-zinc-800 shadow-2xl"
+              />
+            </div>
+          </div>
+        )}
+      </main>
+    </>
   );
 }
