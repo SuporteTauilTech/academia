@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
+import { Filesystem, Directory } from "@capacitor/filesystem";
+import { Share } from "@capacitor/share";
 import {
   Activity,
   LineChart as LineChartIcon,
@@ -19,8 +21,7 @@ import {
   X,
   Maximize2,
   Printer,
-  Copy,
-  Check,
+  FileText,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -54,6 +55,7 @@ interface BodyMetric {
 export default function ProgressoPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
   const [isPersonal, setIsPersonal] = useState(false);
   const [students, setStudents] = useState<UserProfile[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string>("");
@@ -61,8 +63,6 @@ export default function ProgressoPage() {
   const [metrics, setMetrics] = useState<BodyMetric[]>([]);
   const [workoutLogsCount, setWorkoutLogsCount] = useState<number>(0);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
-  const [showReportModal, setShowReportModal] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -147,8 +147,62 @@ export default function ProgressoPage() {
     fetchStudentProgress(studentId);
   }
 
-  function handleOpenReport() {
-    setShowReportModal(true);
+  async function handleGenerateNativePDF() {
+    setGeneratingPdf(true);
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const { jsPDF } = await import("jspdf");
+
+      const element = document.getElementById("report-container");
+      if (!element) {
+        alert("Erro ao capturar o relatório.");
+        return;
+      }
+
+      // Renderiza a área do relatório em canvas
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#09090b",
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const imgWidth = 210;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
+
+      // Obtém o ficheiro em formato Base64 para gravação nativa
+      const pdfBase64 = pdf.output("datauristring").split(",")[1];
+      const fileName = `Avaliacao_${selectedStudentName.replace(/\s+/g, "_")}.pdf`;
+
+      // Grava o PDF no armazenamento nativo do Android
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: pdfBase64,
+        directory: Directory.Cache,
+      });
+
+      // Abre o documento ou a caixa de partilha nativa do Android
+      await Share.share({
+        title: `Relatório de Avaliação - ${selectedStudentName}`,
+        url: savedFile.uri,
+      });
+    } catch (err) {
+      console.error("Erro ao gerar PDF nativo:", err);
+      alert("Não foi possível gerar o documento PDF.");
+    } finally {
+      setGeneratingPdf(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-zinc-950 text-white">
+        <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+      </main>
+    );
   }
 
   const validMetric =
@@ -159,32 +213,6 @@ export default function ProgressoPage() {
         (m.muscle_mass && Number(m.muscle_mass) > 0) ||
         (m.height && Number(m.height) > 0)
     ) || metrics[0];
-
-  function handleCopyText() {
-    if (!validMetric) return;
-    const text = `📊 RELATÓRIO DE AVALIAÇÃO FÍSICA - ${selectedStudentName.toUpperCase()}
-Data: ${new Date(validMetric.created_at).toLocaleDateString("pt-BR")}
-
-🏋️‍♂️ Treinos Concluídos: ${workoutLogsCount}
-⚖️ Peso: ${validMetric.weight || "-"} kg
-📉 Gordura (BF): ${validMetric.body_fat || "-"}%
-💪 Massa Magra: ${validMetric.muscle_mass || "-"} kg
-📏 Altura: ${validMetric.height || "-"} cm
-
-Gerado por Xiton Personal App.`;
-
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-
-  if (loading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-zinc-950 text-white">
-        <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
-      </main>
-    );
-  }
 
   const chartData = [...metrics]
     .filter(
@@ -226,11 +254,16 @@ Gerado por Xiton Personal App.`;
 
           <div className="flex items-center gap-2">
             <button
-              onClick={handleOpenReport}
-              className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-xs text-white transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-900/30 cursor-pointer"
+              onClick={handleGenerateNativePDF}
+              disabled={generatingPdf}
+              className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-xs text-white transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-900/30 cursor-pointer disabled:opacity-50"
             >
-              <Printer className="w-4 h-4" />
-              Salvar PDF / Imprimir
+              {generatingPdf ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <FileText className="w-4 h-4" />
+              )}
+              {generatingPdf ? "A criar PDF..." : "Salvar Documento PDF"}
             </button>
 
             {isPersonal && students.length > 0 && (
@@ -252,7 +285,7 @@ Gerado por Xiton Personal App.`;
           </div>
         </header>
 
-        <div className="space-y-6 p-2 rounded-2xl bg-zinc-950">
+        <div id="report-container" className="space-y-6 p-2 rounded-2xl bg-zinc-950">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center gap-4">
               <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400 shrink-0">
@@ -424,67 +457,6 @@ Gerado por Xiton Personal App.`;
             </section>
           )}
         </div>
-
-        {/* Modal de Relatório formatado para impressão ou cópia rápida */}
-        {showReportModal && (
-          <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
-            <div className="relative max-w-xl w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4 max-h-[90vh] flex flex-col shadow-2xl">
-              <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Printer className="w-4 h-4 text-emerald-400" /> Relatório de Avaliação Física
-                </h3>
-                <button
-                  onClick={() => setShowReportModal(false)}
-                  className="p-1.5 text-zinc-400 hover:text-white rounded-xl hover:bg-zinc-800 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="overflow-y-auto flex-1 space-y-4 p-4 rounded-xl border border-zinc-800 bg-zinc-950">
-                <div className="border-b border-zinc-800 pb-3">
-                  <h4 className="text-base font-bold text-emerald-400">{selectedStudentName}</h4>
-                  <p className="text-xs text-zinc-400">
-                    Data da Avaliação: {validMetric ? new Date(validMetric.created_at).toLocaleDateString("pt-BR") : "-"}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="p-2.5 bg-zinc-900 rounded-lg border border-zinc-800">
-                    <span className="text-zinc-500 block">Treinos Concluídos</span>
-                    <strong className="text-sm font-bold text-white">{workoutLogsCount}</strong>
-                  </div>
-                  <div className="p-2.5 bg-zinc-900 rounded-lg border border-zinc-800">
-                    <span className="text-zinc-500 block">Peso</span>
-                    <strong className="text-sm font-bold text-white">{validMetric?.weight ? `${validMetric.weight} kg` : "-"}</strong>
-                  </div>
-                  <div className="p-2.5 bg-zinc-900 rounded-lg border border-zinc-800">
-                    <span className="text-zinc-500 block">Gordura (BF)</span>
-                    <strong className="text-sm font-bold text-white">{validMetric?.body_fat ? `${validMetric.body_fat}%` : "-"}</strong>
-                  </div>
-                  <div className="p-2.5 bg-zinc-900 rounded-lg border border-zinc-800">
-                    <span className="text-zinc-500 block">Massa Magra</span>
-                    <strong className="text-sm font-bold text-white">{validMetric?.muscle_mass ? `${validMetric.muscle_mass} kg` : "-"}</strong>
-                  </div>
-                </div>
-
-                <div className="pt-2 text-[11px] text-zinc-500 text-center italic">
-                  * Utilize a opção de copiar para enviar rapidamente via WhatsApp ou salvar no bloco de notas.
-                </div>
-              </div>
-
-              <div className="pt-2 flex items-center justify-end gap-2">
-                <button
-                  onClick={handleCopyText}
-                  className="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/50 transition-colors"
-                >
-                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  {copied ? "Copiado para Área de Transferência!" : "Copiar Resumo (WhatsApp)"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {selectedPhoto && (
           <div
