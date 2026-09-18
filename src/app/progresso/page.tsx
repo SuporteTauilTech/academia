@@ -147,14 +147,45 @@ export default function ProgressoPage() {
   async function handlePrintPDF() {
     setGeneratingPdf(true);
     try {
-      // Tenta acionar a impressão nativa
-      if (typeof window !== "undefined") {
+      const html2canvas = (await import("html2canvas")).default;
+      const { jsPDF } = await import("jspdf");
+
+      const element = document.getElementById("report-container");
+      if (!element) {
         window.print();
+        return;
       }
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#09090b",
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const imgWidth = 210;
+      const pageHeight = 295;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(`Relatorio_Progresso_${selectedStudentName.replace(/\s+/g, "_")}.pdf`);
     } catch (err) {
-      console.error("Erro ao imprimir:", err);
+      console.error("Erro ao gerar PDF:", err);
+      window.print();
     } finally {
-      setTimeout(() => setGeneratingPdf(false), 1000);
+      setGeneratingPdf(false);
     }
   }
 
@@ -269,7 +300,7 @@ export default function ProgressoPage() {
               ) : (
                 <Printer className="w-4 h-4" />
               )}
-              Salvar PDF / Imprimir
+              {generatingPdf ? "Gerando PDF..." : "Salvar PDF / Imprimir"}
             </button>
 
             {isPersonal && students.length > 0 && (
@@ -291,7 +322,7 @@ export default function ProgressoPage() {
           </div>
         </header>
 
-        <div className="space-y-6 print:space-y-4">
+        <div id="report-container" className="space-y-6 print:space-y-4 p-2 rounded-2xl bg-zinc-950">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 print:gap-3">
             <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center gap-4 print-card">
               <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400 print:bg-emerald-50 shrink-0">
