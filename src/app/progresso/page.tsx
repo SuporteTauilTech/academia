@@ -387,9 +387,9 @@ export default function ProgressoPage() {
                   </h3>
                   <div className="h-44 w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={chartData} margin={{ top: 5, right: 35, left: -20, bottom: 0 }}>
+                      <LineChart data={chartData} margin={{ top: 10, right: 45, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                        <XAxis dataKey="date" stroke="#71717a" fontSize={10} />
+                        <XAxis dataKey="date" stroke="#71717a" fontSize={10} padding={{ right: 25 }} />
                         <YAxis stroke="#71717a" fontSize={10} domain={["auto", "auto"]} />
                         <Tooltip
                           contentStyle={{
@@ -417,9 +417,9 @@ export default function ProgressoPage() {
                   </h3>
                   <div className="h-44 w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={chartData} margin={{ top: 5, right: 35, left: -20, bottom: 0 }}>
+                      <LineChart data={chartData} margin={{ top: 10, right: 45, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                        <XAxis dataKey="date" stroke="#71717a" fontSize={10} />
+                        <XAxis dataKey="date" stroke="#71717a" fontSize={10} padding={{ right: 25 }} />
                         <YAxis stroke="#71717a" fontSize={10} domain={["auto", "auto"]} />
                         <Tooltip
                           contentStyle={{
