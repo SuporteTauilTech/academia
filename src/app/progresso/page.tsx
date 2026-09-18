@@ -19,6 +19,7 @@ import {
   X,
   Maximize2,
   Printer,
+  Download,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -60,6 +61,7 @@ export default function ProgressoPage() {
   const [metrics, setMetrics] = useState<BodyMetric[]>([]);
   const [workoutLogsCount, setWorkoutLogsCount] = useState<number>(0);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [reportPreview, setReportPreview] = useState<string | null>(null);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -151,7 +153,7 @@ export default function ProgressoPage() {
       const element = document.getElementById("report-container");
 
       if (!element) {
-        window.print();
+        alert("Não foi possível capturar o relatório.");
         return;
       }
 
@@ -161,29 +163,11 @@ export default function ProgressoPage() {
         backgroundColor: "#09090b",
       });
 
-      canvas.toBlob(async (blob) => {
-        if (!blob) {
-          window.print();
-          return;
-        }
-
-        const fileName = `Relatorio_${selectedStudentName.replace(/\s+/g, "_")}.png`;
-        const file = new File([blob], fileName, { type: "image/png" });
-
-        // Tenta acionar a caixa de partilha do Android (WhatsApp, Ficheiros, Drive, Impressão)
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: `Relatório de Avaliação Física - ${selectedStudentName}`,
-            text: `Segue o relatório de progresso do aluno ${selectedStudentName}.`,
-          });
-        } else {
-          window.print();
-        }
-      }, "image/png");
+      const imgData = canvas.toDataURL("image/png");
+      setReportPreview(imgData);
     } catch (err) {
       console.error("Erro ao gerar relatório:", err);
-      window.print();
+      alert("Ocorreu um erro ao gerar a prévia do relatório.");
     } finally {
       setGeneratingPdf(false);
     }
@@ -225,53 +209,8 @@ export default function ProgressoPage() {
 
   return (
     <>
-      <style jsx global>{`
-        @media print {
-          @page {
-            size: A4 portrait;
-            margin: 8mm;
-          }
-          body {
-            background-color: #ffffff !important;
-            color: #000000 !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          main {
-            padding: 0 !important;
-            max-width: 100% !important;
-            background: transparent !important;
-          }
-          .print-card {
-            background-color: #ffffff !important;
-            border: 1px solid #e4e4e7 !important;
-            color: #000000 !important;
-            box-shadow: none !important;
-            page-break-inside: avoid;
-          }
-          .print-text-dark {
-            color: #09090b !important;
-          }
-          .print-text-muted {
-            color: #71717a !important;
-          }
-          .recharts-responsive-container {
-            width: 100% !important;
-          }
-          .recharts-wrapper, .recharts-surface {
-            overflow: visible !important;
-          }
-          .recharts-cartesian-grid-line {
-            stroke: #e4e4e7 !important;
-          }
-          .recharts-text {
-            fill: #52525b !important;
-          }
-        }
-      `}</style>
-
-      <main className="min-h-screen bg-zinc-950 text-white p-4 sm:p-6 max-w-4xl mx-auto space-y-6 pb-20 print:bg-white print:text-black print:p-0 print:m-0">
-        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-800 print:hidden">
+      <main className="min-h-screen bg-zinc-950 text-white p-4 sm:p-6 max-w-4xl mx-auto space-y-6 pb-20">
+        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-800">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.push("/")}
@@ -322,97 +261,97 @@ export default function ProgressoPage() {
           </div>
         </header>
 
-        <div id="report-container" className="space-y-6 print:space-y-4 p-2 rounded-2xl bg-zinc-950">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 print:gap-3">
-            <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center gap-4 print-card">
-              <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400 print:bg-emerald-50 shrink-0">
+        <div id="report-container" className="space-y-6 p-2 rounded-2xl bg-zinc-950">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center gap-4">
+              <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400 shrink-0">
                 <CheckCircle2 className="w-6 h-6 text-emerald-500" />
               </div>
               <div>
-                <span className="text-2xl font-bold text-white print-text-dark">{workoutLogsCount}</span>
-                <p className="text-xs text-zinc-400 print-text-muted">Treinos Concluídos</p>
+                <span className="text-2xl font-bold text-white">{workoutLogsCount}</span>
+                <p className="text-xs text-zinc-400">Treinos Concluídos</p>
               </div>
             </div>
 
-            <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center gap-4 print-card">
-              <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400 print:bg-emerald-50 shrink-0">
+            <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center gap-4">
+              <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400 shrink-0">
                 <Activity className="w-6 h-6 text-emerald-500" />
               </div>
               <div>
-                <span className="text-sm font-bold text-white print-text-dark">
+                <span className="text-sm font-bold text-white">
                   {metrics.length > 0 ? `${metrics.length} Avaliação(ões)` : "Sem avaliações"}
                 </span>
-                <p className="text-xs text-zinc-400 print-text-muted">Status de Progresso Físico</p>
+                <p className="text-xs text-zinc-400">Status de Progresso Físico</p>
               </div>
             </div>
           </div>
 
           {metrics.length === 0 ? (
-            <div className="p-8 text-center bg-zinc-900/50 border border-zinc-800 rounded-2xl space-y-3 print-card">
+            <div className="p-8 text-center bg-zinc-900/50 border border-zinc-800 rounded-2xl space-y-3">
               <Activity className="w-10 h-10 text-zinc-600 mx-auto" />
-              <h3 className="text-sm font-semibold text-zinc-300 print-text-dark">
+              <h3 className="text-sm font-semibold text-zinc-300">
                 Nenhuma avaliação física registrada para este aluno
               </h3>
             </div>
           ) : (
-            <section className="space-y-6 print:space-y-4">
-              <div className="p-5 bg-zinc-900 border border-emerald-500/30 rounded-2xl space-y-4 print-card">
-                <div className="flex justify-between items-center border-b border-zinc-800 pb-3 print:border-zinc-200">
-                  <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5 print:text-emerald-700">
+            <section className="space-y-6">
+              <div className="p-5 bg-zinc-900 border border-emerald-500/30 rounded-2xl space-y-4">
+                <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
+                  <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
                     <Activity className="w-4 h-4" /> Relatório de Avaliação Física - {selectedStudentName}
                   </span>
-                  <span className="text-xs text-zinc-400 flex items-center gap-1 print-text-muted">
+                  <span className="text-xs text-zinc-400 flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5 text-zinc-500" />
                     {validMetric ? new Date(validMetric.created_at).toLocaleDateString("pt-BR") : "-"}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 print:gap-2">
-                  <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 print-card">
-                    <span className="text-zinc-400 text-xs font-medium flex items-center gap-1.5 mb-1 print-text-muted">
-                      <Scale className="w-3.5 h-3.5 text-emerald-400 print:text-emerald-700 shrink-0" /> Peso
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800">
+                    <span className="text-zinc-400 text-xs font-medium flex items-center gap-1.5 mb-1">
+                      <Scale className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> Peso
                     </span>
-                    <span className="text-lg font-bold text-white print-text-dark">
+                    <span className="text-lg font-bold text-white">
                       {validMetric && Number(validMetric.weight) > 0 ? `${validMetric.weight} kg` : "-"}
                     </span>
                   </div>
-                  <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 print-card">
-                    <span className="text-zinc-400 text-xs font-medium flex items-center gap-1.5 mb-1 print-text-muted">
-                      <TrendingDown className="w-3.5 h-3.5 text-emerald-400 print:text-emerald-700 shrink-0" /> Gordura (BF)
+                  <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800">
+                    <span className="text-zinc-400 text-xs font-medium flex items-center gap-1.5 mb-1">
+                      <TrendingDown className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> Gordura (BF)
                     </span>
-                    <span className="text-lg font-bold text-white print-text-dark">
+                    <span className="text-lg font-bold text-white">
                       {validMetric && Number(validMetric.body_fat) > 0 ? `${validMetric.body_fat}%` : "-"}
                     </span>
                   </div>
-                  <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 print-card">
-                    <span className="text-zinc-400 text-xs font-medium flex items-center gap-1.5 mb-1 print-text-muted">
-                      <Dumbbell className="w-3.5 h-3.5 text-emerald-400 print:text-emerald-700 shrink-0" /> Massa Magra
+                  <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800">
+                    <span className="text-zinc-400 text-xs font-medium flex items-center gap-1.5 mb-1">
+                      <Dumbbell className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> Massa Magra
                     </span>
-                    <span className="text-lg font-bold text-white print-text-dark">
+                    <span className="text-lg font-bold text-white">
                       {validMetric && Number(validMetric.muscle_mass) > 0 ? `${validMetric.muscle_mass} kg` : "-"}
                     </span>
                   </div>
-                  <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 print-card">
-                    <span className="text-zinc-400 text-xs font-medium flex items-center gap-1.5 mb-1 print-text-muted">
-                      <Ruler className="w-3.5 h-3.5 text-emerald-400 print:text-emerald-700 shrink-0" /> Altura
+                  <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800">
+                    <span className="text-zinc-400 text-xs font-medium flex items-center gap-1.5 mb-1">
+                      <Ruler className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> Altura
                     </span>
-                    <span className="text-lg font-bold text-white print-text-dark">
+                    <span className="text-lg font-bold text-white">
                       {validMetric && Number(validMetric.height) > 0 ? `${validMetric.height} cm` : "-"}
                     </span>
                   </div>
                 </div>
 
                 {validMetric && validMetric.photos && validMetric.photos.length > 0 && (
-                  <div className="pt-3 border-t border-zinc-800/80 space-y-2 print:border-zinc-200">
-                    <span className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5 print-text-dark">
-                      <Camera className="w-4 h-4 text-emerald-400 print:text-emerald-700" /> Fotos de Evolução
+                  <div className="pt-3 border-t border-zinc-800/80 space-y-2">
+                    <span className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+                      <Camera className="w-4 h-4 text-emerald-400" /> Fotos de Evolução
                     </span>
-                    <div className="grid grid-cols-4 gap-3 print:gap-2">
+                    <div className="grid grid-cols-4 gap-3">
                       {validMetric.photos.map((photoUrl, i) => (
                         <button
                           key={i}
                           onClick={() => setSelectedPhoto(photoUrl)}
-                          className="relative group aspect-square rounded-xl overflow-hidden border border-zinc-800 hover:border-emerald-500 transition-all bg-zinc-950 focus:outline-none print-card"
+                          className="relative group aspect-square rounded-xl overflow-hidden border border-zinc-800 hover:border-emerald-500 transition-all bg-zinc-950 focus:outline-none"
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
@@ -420,7 +359,7 @@ export default function ProgressoPage() {
                             alt={`Evolução ${i + 1}`}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           />
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center print:hidden">
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                             <Maximize2 className="w-5 h-5 text-white" />
                           </div>
                         </button>
@@ -430,10 +369,10 @@ export default function ProgressoPage() {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 print:gap-3">
-                <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-3 print-card">
-                  <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2 print-text-dark">
-                    <Scale className="w-4 h-4 text-emerald-400 print:text-emerald-700" /> Evolução de Peso (kg)
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-3">
+                  <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
+                    <Scale className="w-4 h-4 text-emerald-400" /> Evolução de Peso (kg)
                   </h3>
                   <div className="h-56 w-full">
                     <ResponsiveContainer width="100%" height="100%">
@@ -461,9 +400,9 @@ export default function ProgressoPage() {
                   </div>
                 </div>
 
-                <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-3 print-card">
-                  <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2 print-text-dark">
-                    <TrendingDown className="w-4 h-4 text-emerald-400 print:text-emerald-700" /> Evolução de Gordura (%)
+                <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-3">
+                  <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
+                    <TrendingDown className="w-4 h-4 text-emerald-400" /> Evolução de Gordura (%)
                   </h3>
                   <div className="h-56 w-full">
                     <ResponsiveContainer width="100%" height="100%">
@@ -495,9 +434,43 @@ export default function ProgressoPage() {
           )}
         </div>
 
+        {/* Modal de prévia do relatório para salvar */}
+        {reportPreview && (
+          <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4">
+            <div className="relative max-w-2xl w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-4 max-h-[90vh] flex flex-col">
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Printer className="w-4 h-4 text-emerald-500" /> Relatório Gerado
+                </h3>
+                <button
+                  onClick={() => setReportPreview(null)}
+                  className="p-1 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="overflow-y-auto flex-1 rounded-xl border border-zinc-800 bg-zinc-950 p-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={reportPreview} alt="Prévia do relatório" className="w-full h-auto rounded-lg" />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <a
+                  href={reportPreview}
+                  download={`Relatorio_Progresso_${selectedStudentName.replace(/\s+/g, "_")}.png`}
+                  className="w-full sm:w-auto py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/50"
+                >
+                  <Download className="w-4 h-4" /> Baixar Imagem / Relatório
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+
         {selectedPhoto && (
           <div
-            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 print:hidden"
+            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
             onClick={() => setSelectedPhoto(null)}
           >
             <button
