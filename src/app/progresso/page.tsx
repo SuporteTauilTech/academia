@@ -20,7 +20,6 @@ import {
   Camera,
   X,
   Maximize2,
-  Printer,
   FileText,
 } from "lucide-react";
 import {
@@ -147,51 +146,133 @@ export default function ProgressoPage() {
     fetchStudentProgress(studentId);
   }
 
+  const validMetric =
+    metrics.find(
+      (m) =>
+        (m.weight && Number(m.weight) > 0) ||
+        (m.body_fat && Number(m.body_fat) > 0) ||
+        (m.muscle_mass && Number(m.muscle_mass) > 0) ||
+        (m.height && Number(m.height) > 0)
+    ) || metrics[0];
+
   async function handleGenerateNativePDF() {
     setGeneratingPdf(true);
     try {
-      const html2canvas = (await import("html2canvas")).default;
       const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF("p", "mm", "a4");
 
-      const element = document.getElementById("report-container");
-      if (!element) {
-        alert("Erro ao capturar o relatório.");
-        return;
-      }
+      // Cabeçalho
+      doc.setFillColor(16, 185, 129); // Verde Emerald
+      doc.rect(0, 0, 210, 25, "F");
 
-      // Renderiza a área do relatório em canvas
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#09090b",
-      });
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text("RELATÓRIO DE AVALIAÇÃO FÍSICA", 14, 16);
 
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF("p", "mm", "a4");
-      const imgWidth = 210;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      // Informações do Aluno
+      doc.setTextColor(30, 30, 30);
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Aluno: ${selectedStudentName}`, 14, 38);
 
-      pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 100, 100);
+      const dataFormatada = validMetric
+        ? new Date(validMetric.created_at).toLocaleDateString("pt-BR")
+        : new Date().toLocaleDateString("pt-BR");
+      doc.text(`Data da Avaliação: ${dataFormatada}`, 14, 45);
 
-      // Obtém o ficheiro em formato Base64 para gravação nativa
-      const pdfBase64 = pdf.output("datauristring").split(",")[1];
-      const fileName = `Avaliacao_${selectedStudentName.replace(/\s+/g, "_")}.pdf`;
+      // Linha Divisória
+      doc.setDrawColor(220, 220, 220);
+      doc.line(14, 49, 196, 49);
 
-      // Grava o PDF no armazenamento nativo do Android
+      // Resumo de Treinos
+      doc.setFillColor(245, 245, 245);
+      doc.roundedRect(14, 55, 182, 20, 3, 3, "F");
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(16, 185, 129);
+      doc.text("TREINOS CONCLUÍDOS:", 20, 68);
+      doc.setTextColor(30, 30, 30);
+      doc.text(`${workoutLogsCount} treinos realizados`, 75, 68);
+
+      // Cards de Métricas
+      const metricsY = 85;
+
+      // Card 1 - Peso
+      doc.setFillColor(245, 245, 245);
+      doc.roundedRect(14, metricsY, 88, 25, 3, 3, "F");
+      doc.setFontSize(9);
+      doc.setTextColor(100, 100, 100);
+      doc.text("PESO", 20, metricsY + 8);
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 30, 30);
+      doc.text(validMetric?.weight ? `${validMetric.weight} kg` : "-", 20, metricsY + 18);
+
+      // Card 2 - Gordura
+      doc.setFillColor(245, 245, 245);
+      doc.roundedRect(108, metricsY, 88, 25, 3, 3, "F");
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 100, 100);
+      doc.text("GORDURA (BF)", 114, metricsY + 8);
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 30, 30);
+      doc.text(validMetric?.body_fat ? `${validMetric.body_fat}%` : "-", 114, metricsY + 18);
+
+      // Card 3 - Massa Magra
+      doc.setFillColor(245, 245, 245);
+      doc.roundedRect(14, metricsY + 30, 88, 25, 3, 3, "F");
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 100, 100);
+      doc.text("MASSA MAGRA", 20, metricsY + 38);
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 30, 30);
+      doc.text(validMetric?.muscle_mass ? `${validMetric.muscle_mass} kg` : "-", 20, metricsY + 48);
+
+      // Card 4 - Altura
+      doc.setFillColor(245, 245, 245);
+      doc.roundedRect(108, metricsY + 30, 88, 25, 3, 3, "F");
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 100, 100);
+      doc.text("ALTURA", 114, metricsY + 38);
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 30, 30);
+      doc.text(validMetric?.height ? `${validMetric.height} cm` : "-", 114, metricsY + 48);
+
+      // Rodapé
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "italic");
+      doc.setTextColor(150, 150, 150);
+      doc.text("Documento oficial gerado por Xiton Personal Trainer App", 14, 280);
+
+      // Converte para Base64
+      const pdfBase64 = doc.output("datauristring").split(",")[1];
+      const fileName = `Relatorio_${selectedStudentName.replace(/\s+/g, "_")}.pdf`;
+
+      // Grava no armazenamento do Android
       const savedFile = await Filesystem.writeFile({
         path: fileName,
         data: pdfBase64,
         directory: Directory.Cache,
       });
 
-      // Abre o documento ou a caixa de partilha nativa do Android
+      // Abre a janela nativa para salvar / enviar
       await Share.share({
         title: `Relatório de Avaliação - ${selectedStudentName}`,
         url: savedFile.uri,
       });
     } catch (err) {
-      console.error("Erro ao gerar PDF nativo:", err);
-      alert("Não foi possível gerar o documento PDF.");
+      console.error("Erro ao gerar PDF:", err);
+      alert("Ocorreu um erro ao gerar o PDF. Tente novamente.");
     } finally {
       setGeneratingPdf(false);
     }
@@ -204,15 +285,6 @@ export default function ProgressoPage() {
       </main>
     );
   }
-
-  const validMetric =
-    metrics.find(
-      (m) =>
-        (m.weight && Number(m.weight) > 0) ||
-        (m.body_fat && Number(m.body_fat) > 0) ||
-        (m.muscle_mass && Number(m.muscle_mass) > 0) ||
-        (m.height && Number(m.height) > 0)
-    ) || metrics[0];
 
   const chartData = [...metrics]
     .filter(
@@ -263,7 +335,7 @@ export default function ProgressoPage() {
               ) : (
                 <FileText className="w-4 h-4" />
               )}
-              {generatingPdf ? "A criar PDF..." : "Salvar Documento PDF"}
+              {generatingPdf ? "A criar PDF..." : "Salvar PDF / Imprimir"}
             </button>
 
             {isPersonal && students.length > 0 && (
