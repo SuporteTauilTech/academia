@@ -332,7 +332,6 @@ export default function ProgressoPage() {
                     <span className="text-zinc-500 text-xs block flex items-center gap-1 print-text-muted">
                       <TrendingDown className="w-3.5 h-3.5 text-emerald-500" /> Gordura (BF)
                     </span>
-                    {/* Alinhado para text-white para ficar igual aos outros campos */}
                     <span className="text-lg font-bold text-white print-text-dark">
                       {validMetric && Number(validMetric.body_fat) > 0 ? `${validMetric.body_fat}%` : "-"}
                     </span>
@@ -382,15 +381,15 @@ export default function ProgressoPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-4 print:gap-3">
-                <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-3 print-card pr-8">
+                <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-3 print-card">
                   <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2 print-text-dark">
                     <Scale className="w-4 h-4 text-emerald-400 print:text-emerald-700" /> Evolução de Peso (kg)
                   </h3>
                   <div className="h-44 w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={chartData} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
+                      <LineChart data={chartData} margin={{ top: 10, right: 30, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                        <XAxis dataKey="date" stroke="#71717a" fontSize={10} scale="point" padding={{ left: 10, right: 20 }} />
+                        <XAxis dataKey="date" stroke="#71717a" fontSize={10} padding={{ left: 15, right: 15 }} />
                         <YAxis stroke="#71717a" fontSize={10} domain={["auto", "auto"]} />
                         <Tooltip
                           contentStyle={{
@@ -412,15 +411,15 @@ export default function ProgressoPage() {
                   </div>
                 </div>
 
-                <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-3 print-card pr-8">
+                <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-3 print-card">
                   <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2 print-text-dark">
                     <TrendingDown className="w-4 h-4 text-emerald-400 print:text-emerald-700" /> Evolução de Gordura (%)
                   </h3>
                   <div className="h-44 w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={chartData} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
+                      <LineChart data={chartData} margin={{ top: 10, right: 30, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                        <XAxis dataKey="date" stroke="#71717a" fontSize={10} scale="point" padding={{ left: 10, right: 20 }} />
+                        <XAxis dataKey="date" stroke="#71717a" fontSize={10} padding={{ left: 15, right: 15 }} />
                         <YAxis stroke="#71717a" fontSize={10} domain={["auto", "auto"]} />
                         <Tooltip
                           contentStyle={{
