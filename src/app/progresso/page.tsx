@@ -381,15 +381,15 @@ export default function ProgressoPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-4 print:gap-3">
-                <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-3 print-card">
+                <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-3 print-card pr-8">
                   <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2 print-text-dark">
                     <Scale className="w-4 h-4 text-emerald-400 print:text-emerald-700" /> Evolução de Peso (kg)
                   </h3>
                   <div className="h-44 w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={chartData} margin={{ top: 10, right: 45, left: -20, bottom: 0 }}>
+                      <LineChart data={chartData} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                        <XAxis dataKey="date" stroke="#71717a" fontSize={10} padding={{ right: 25 }} />
+                        <XAxis dataKey="date" stroke="#71717a" fontSize={10} scale="point" padding={{ left: 10, right: 20 }} />
                         <YAxis stroke="#71717a" fontSize={10} domain={["auto", "auto"]} />
                         <Tooltip
                           contentStyle={{
@@ -411,15 +411,15 @@ export default function ProgressoPage() {
                   </div>
                 </div>
 
-                <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-3 print-card">
+                <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-3 print-card pr-8">
                   <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2 print-text-dark">
                     <TrendingDown className="w-4 h-4 text-emerald-400 print:text-emerald-700" /> Evolução de Gordura (%)
                   </h3>
                   <div className="h-44 w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={chartData} margin={{ top: 10, right: 45, left: -20, bottom: 0 }}>
+                      <LineChart data={chartData} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                        <XAxis dataKey="date" stroke="#71717a" fontSize={10} padding={{ right: 25 }} />
+                        <XAxis dataKey="date" stroke="#71717a" fontSize={10} scale="point" padding={{ left: 10, right: 20 }} />
                         <YAxis stroke="#71717a" fontSize={10} domain={["auto", "auto"]} />
                         <Tooltip
                           contentStyle={{
