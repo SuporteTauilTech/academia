@@ -148,9 +148,8 @@ export default function ProgressoPage() {
     setGeneratingPdf(true);
     try {
       const html2canvas = (await import("html2canvas")).default;
-      const { jsPDF } = await import("jspdf");
-
       const element = document.getElementById("report-container");
+
       if (!element) {
         window.print();
         return;
@@ -162,27 +161,28 @@ export default function ProgressoPage() {
         backgroundColor: "#09090b",
       });
 
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF("p", "mm", "a4");
-      const imgWidth = 210;
-      const pageHeight = 295;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      let heightLeft = imgHeight;
-      let position = 0;
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          window.print();
+          return;
+        }
 
-      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
+        const fileName = `Relatorio_${selectedStudentName.replace(/\s+/g, "_")}.png`;
+        const file = new File([blob], fileName, { type: "image/png" });
 
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-      }
-
-      pdf.save(`Relatorio_Progresso_${selectedStudentName.replace(/\s+/g, "_")}.pdf`);
+        // Tenta acionar a caixa de partilha do Android (WhatsApp, Ficheiros, Drive, Impressão)
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: `Relatório de Avaliação Física - ${selectedStudentName}`,
+            text: `Segue o relatório de progresso do aluno ${selectedStudentName}.`,
+          });
+        } else {
+          window.print();
+        }
+      }, "image/png");
     } catch (err) {
-      console.error("Erro ao gerar PDF:", err);
+      console.error("Erro ao gerar relatório:", err);
       window.print();
     } finally {
       setGeneratingPdf(false);
@@ -300,7 +300,7 @@ export default function ProgressoPage() {
               ) : (
                 <Printer className="w-4 h-4" />
               )}
-              {generatingPdf ? "Gerando PDF..." : "Salvar PDF / Imprimir"}
+              {generatingPdf ? "A preparar..." : "Salvar PDF / Imprimir"}
             </button>
 
             {isPersonal && students.length > 0 && (
