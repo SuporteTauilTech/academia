@@ -143,7 +143,13 @@ export default function ProgressoPage() {
   }
 
   function handlePrintPDF() {
-    window.print();
+    try {
+      if (typeof window !== "undefined") {
+        window.print();
+      }
+    } catch {
+      alert("Para gerar o PDF no celular, utilize o menu do navegador e selecione 'Compartilhar' -> 'Imprimir'.");
+    }
   }
 
   if (loading) {

@@ -138,30 +138,42 @@ export default function DashboardPage() {
       setProfile(currentUserProfile);
 
       if (currentUserProfile.role === "personal") {
-        // Tenta buscar na tabela profiles
-        let { data: usersData } = await supabase
-          .from("profiles")
+        // Busca unificada na tabela users ignorando a conta do personal
+        const { data: usersData } = await supabase
+          .from("users")
           .select("*")
-          .neq("role", "personal");
-
-        // Caso a tabela profiles não retorne alunos, busca na tabela users
-        if (!usersData || usersData.length === 0) {
-          const { data: altUsers } = await supabase
-            .from("users")
-            .select("*")
-            .neq("email", "xiton@personal.com");
-          usersData = altUsers;
-        }
+          .neq("email", "xiton@personal.com");
 
         if (usersData && usersData.length > 0) {
           const mappedStudents: UserProfile[] = usersData.map((u) => ({
             id: u.id,
-            name: u.full_name || u.name || "Aluno",
+            name: u.full_name || u.name || "Jogador",
             email: u.email || "",
             role: u.role || "aluno",
             status: u.status || "ativo",
           }));
           setStudents(mappedStudents);
+          setSelectedStudent(mappedStudents[0]);
+          fetchSelectedStudentData(mappedStudents[0].id);
+        } else {
+          // Fallback para a tabela profiles
+          const { data: profilesData } = await supabase
+            .from("profiles")
+            .select("*")
+            .neq("id", user.id);
+
+          if (profilesData && profilesData.length > 0) {
+            const mappedProfiles: UserProfile[] = profilesData.map((u) => ({
+              id: u.id,
+              name: u.full_name || u.name || "Jogador",
+              email: u.email || "",
+              role: u.role || "aluno",
+              status: u.status || "ativo",
+            }));
+            setStudents(mappedProfiles);
+            setSelectedStudent(mappedProfiles[0]);
+            fetchSelectedStudentData(mappedProfiles[0].id);
+          }
         }
       } else {
         await fetchStudentWorkouts(user.id);
@@ -309,7 +321,6 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white p-4 sm:p-6 max-w-4xl mx-auto space-y-6 pb-20">
-      {/* CABEÇALHO COM A NAVEGAÇÃO COMPLETA E BOTAO SAIR */}
       <header className="space-y-4 pb-4 border-b border-zinc-800">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -334,7 +345,6 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* NAVEGAÇÃO PRINCIPAL */}
         <div className="flex items-center gap-2 pt-1">
           {profile?.role === "personal" ? (
             <>
@@ -369,7 +379,6 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* VISÃO DO PERSONAL TRAINER */}
       {profile?.role === "personal" && (
         <section className="space-y-6">
           <div className="space-y-3">
@@ -412,7 +421,6 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* PAINEL DO ALUNO SELECIONADO */}
           {selectedStudent && (
             <div className="space-y-6 pt-4 border-t border-zinc-800">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-900/80 p-4 rounded-2xl border border-zinc-800">
@@ -501,7 +509,6 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {/* VISÃO DO ALUNO */}
       {(profile?.role === "aluno" || profile?.role === "student") && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
@@ -642,7 +649,6 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {/* Modais do Personal */}
       {isModalOpen && selectedStudent && (
         <CreateWorkoutModal
           studentId={selectedStudent.id}
