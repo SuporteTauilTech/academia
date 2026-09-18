@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Xiton Personal</string>
-    <string name="title_activity_main">Xiton Personal</string>
+    <string name="app_name">Tauil Fit</string>
+    <string name="title_activity_main">Tauil Fit</string>
     <string name="package_name">com.xiton.personal</string>
     <string name="custom_url_scheme">com.xiton.personal</string>
 </resources>
