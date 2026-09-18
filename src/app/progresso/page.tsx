@@ -182,12 +182,11 @@ export default function ProgressoPage() {
 
   return (
     <>
-      {/* Estilos CSS dedicados exclusivamente para a impressão / PDF */}
       <style jsx global>{`
         @media print {
           @page {
             size: A4 portrait;
-            margin: 12mm;
+            margin: 8mm;
           }
           body {
             background-color: #ffffff !important;
@@ -199,11 +198,6 @@ export default function ProgressoPage() {
             padding: 0 !important;
             max-width: 100% !important;
             background: transparent !important;
-          }
-          .print-container {
-            border: none !important;
-            background: transparent !important;
-            color: #000000 !important;
           }
           .print-card {
             background-color: #ffffff !important;
@@ -217,6 +211,12 @@ export default function ProgressoPage() {
           }
           .print-text-muted {
             color: #71717a !important;
+          }
+          .recharts-responsive-container {
+            width: 100% !important;
+          }
+          .recharts-wrapper, .recharts-surface {
+            overflow: visible !important;
           }
           .recharts-cartesian-grid-line {
             stroke: #e4e4e7 !important;
@@ -274,7 +274,6 @@ export default function ProgressoPage() {
           </div>
         </header>
 
-        {/* Conteúdo da Tela */}
         <div className="space-y-6 print:space-y-4">
           <div className="grid grid-cols-2 gap-4 print:gap-3">
             <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center gap-4 print-card">
@@ -381,15 +380,14 @@ export default function ProgressoPage() {
                 )}
               </div>
 
-              {/* Gráficos com margens controladas para o A4 */}
               <div className="grid grid-cols-2 gap-4 print:gap-3">
                 <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-3 print-card">
                   <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2 print-text-dark">
                     <Scale className="w-4 h-4 text-emerald-400 print:text-emerald-700" /> Evolução de Peso (kg)
                   </h3>
                   <div className="h-44 w-full">
-                    <ResponsiveContainer width="99%" height="100%">
-                      <LineChart data={chartData} margin={{ top: 5, right: 15, left: -20, bottom: 0 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={chartData} margin={{ top: 5, right: 35, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
                         <XAxis dataKey="date" stroke="#71717a" fontSize={10} />
                         <YAxis stroke="#71717a" fontSize={10} domain={["auto", "auto"]} />
@@ -418,8 +416,8 @@ export default function ProgressoPage() {
                     <TrendingDown className="w-4 h-4 text-emerald-400 print:text-emerald-700" /> Evolução de Gordura (%)
                   </h3>
                   <div className="h-44 w-full">
-                    <ResponsiveContainer width="99%" height="100%">
-                      <LineChart data={chartData} margin={{ top: 5, right: 15, left: -20, bottom: 0 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={chartData} margin={{ top: 5, right: 35, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
                         <XAxis dataKey="date" stroke="#71717a" fontSize={10} />
                         <YAxis stroke="#71717a" fontSize={10} domain={["auto", "auto"]} />
@@ -447,7 +445,6 @@ export default function ProgressoPage() {
           )}
         </div>
 
-        {/* Lightbox Modal */}
         {selectedPhoto && (
           <div
             className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 print:hidden"
