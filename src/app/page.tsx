@@ -138,10 +138,20 @@ export default function DashboardPage() {
       setProfile(currentUserProfile);
 
       if (currentUserProfile.role === "personal") {
-        const { data: usersData } = await supabase
+        // Tenta buscar na tabela profiles
+        let { data: usersData } = await supabase
           .from("profiles")
           .select("*")
           .neq("role", "personal");
+
+        // Caso a tabela profiles não retorne alunos, busca na tabela users
+        if (!usersData || usersData.length === 0) {
+          const { data: altUsers } = await supabase
+            .from("users")
+            .select("*")
+            .neq("email", "xiton@personal.com");
+          usersData = altUsers;
+        }
 
         if (usersData && usersData.length > 0) {
           const mappedStudents: UserProfile[] = usersData.map((u) => ({
