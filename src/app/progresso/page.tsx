@@ -332,7 +332,8 @@ export default function ProgressoPage() {
                     <span className="text-zinc-500 text-xs block flex items-center gap-1 print-text-muted">
                       <TrendingDown className="w-3.5 h-3.5 text-emerald-500" /> Gordura (BF)
                     </span>
-                    <span className="text-lg font-bold text-emerald-400 print:text-emerald-700">
+                    {/* Alinhado para text-white para ficar igual aos outros campos */}
+                    <span className="text-lg font-bold text-white print-text-dark">
                       {validMetric && Number(validMetric.body_fat) > 0 ? `${validMetric.body_fat}%` : "-"}
                     </span>
                   </div>
