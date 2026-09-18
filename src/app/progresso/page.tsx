@@ -12,12 +12,14 @@ import {
   Scale,
   TrendingDown,
   Dumbbell,
+  Ruler,
   Users,
   CheckCircle2,
   Camera,
   X,
   Maximize2,
   Printer,
+  Share2,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -58,6 +60,7 @@ export default function ProgressoPage() {
   const [metrics, setMetrics] = useState<BodyMetric[]>([]);
   const [workoutLogsCount, setWorkoutLogsCount] = useState<number>(0);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -65,6 +68,13 @@ export default function ProgressoPage() {
   );
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const userAgent = navigator.userAgent || navigator.vendor;
+      if (/android|iphone|ipad|ipod/i.test(userAgent)) {
+        setIsMobile(true);
+      }
+    }
+
     async function loadInitialData() {
       const {
         data: { user },
@@ -142,14 +152,20 @@ export default function ProgressoPage() {
     fetchStudentProgress(studentId);
   }
 
-  function handlePrintPDF() {
-    try {
-      if (typeof window !== "undefined") {
-        window.print();
+  async function handlePrintPDF() {
+    if (navigator.share && isMobile) {
+      try {
+        await navigator.share({
+          title: `Relatório de Avaliação Física - ${selectedStudentName}`,
+          text: `Confira a evolução física do aluno ${selectedStudentName}.`,
+          url: window.location.href,
+        });
+        return;
+      } catch (err) {
+        console.log("Partilha cancelada ou não suportada:", err);
       }
-    } catch {
-      alert("Para gerar o PDF no celular, utilize o menu do navegador e selecione 'Compartilhar' -> 'Imprimir'.");
     }
+    window.print();
   }
 
   if (loading) {
@@ -257,8 +273,8 @@ export default function ProgressoPage() {
               onClick={handlePrintPDF}
               className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-xs text-white transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-900/30"
             >
-              <Printer className="w-4 h-4" />
-              Salvar PDF / Imprimir
+              {isMobile ? <Share2 className="w-4 h-4" /> : <Printer className="w-4 h-4" />}
+              {isMobile ? "Partilhar Relatório" : "Salvar PDF / Imprimir"}
             </button>
 
             {isPersonal && students.length > 0 && (
@@ -351,7 +367,9 @@ export default function ProgressoPage() {
                     </span>
                   </div>
                   <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 print-card">
-                    <span className="text-zinc-500 text-xs block print-text-muted">Altura</span>
+                    <span className="text-zinc-500 text-xs block flex items-center gap-1 print-text-muted">
+                      <Ruler className="w-3.5 h-3.5 text-emerald-500" /> Altura
+                    </span>
                     <span className="text-lg font-bold text-white print-text-dark">
                       {validMetric && Number(validMetric.height) > 0 ? `${validMetric.height} cm` : "-"}
                     </span>
