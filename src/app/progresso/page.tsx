@@ -52,6 +52,7 @@ interface BodyMetric {
 export default function ProgressoPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
   const [isPersonal, setIsPersonal] = useState(false);
   const [students, setStudents] = useState<UserProfile[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string>("");
@@ -143,9 +144,17 @@ export default function ProgressoPage() {
     fetchStudentProgress(studentId);
   }
 
-  function handlePrintPDF() {
-    if (typeof window !== "undefined") {
-      window.print();
+  async function handlePrintPDF() {
+    setGeneratingPdf(true);
+    try {
+      // Tenta acionar a impressão nativa
+      if (typeof window !== "undefined") {
+        window.print();
+      }
+    } catch (err) {
+      console.error("Erro ao imprimir:", err);
+    } finally {
+      setTimeout(() => setGeneratingPdf(false), 1000);
     }
   }
 
@@ -252,9 +261,14 @@ export default function ProgressoPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrintPDF}
-              className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-xs text-white transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-900/30 cursor-pointer"
+              disabled={generatingPdf}
+              className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-xs text-white transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-900/30 cursor-pointer disabled:opacity-50"
             >
-              <Printer className="w-4 h-4" />
+              {generatingPdf ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Printer className="w-4 h-4" />
+              )}
               Salvar PDF / Imprimir
             </button>
 
@@ -278,7 +292,6 @@ export default function ProgressoPage() {
         </header>
 
         <div className="space-y-6 print:space-y-4">
-          {/* Ajustado para 1 coluna no celular (grid-cols-1) e 2 em desktop (sm:grid-cols-2) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 print:gap-3">
             <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center gap-4 print-card">
               <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400 print:bg-emerald-50 shrink-0">
