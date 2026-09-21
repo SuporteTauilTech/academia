@@ -15,6 +15,7 @@ import {
   Scale,
   TrendingDown,
   TrendingUp,
+  Search,
 } from "lucide-react";
 import jsPDF from "jspdf";
 
@@ -39,6 +40,7 @@ export default function ProgressoPage() {
   const [loading, setLoading] = useState(true);
   const [isPersonal, setIsPersonal] = useState(false);
   const [students, setStudents] = useState<UserProfile[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedStudentId, setSelectedStudentId] = useState<string>("");
   const [selectedStudentName, setSelectedStudentName] = useState<string>("Aluno");
   const [metrics, setMetrics] = useState<BodyMetric[]>([]);
@@ -142,7 +144,12 @@ export default function ProgressoPage() {
     fetchStudentData(studentId);
   }
 
-  // PDF Nativo Vetorial (Com Gráficos e 100% à prova de falhas)
+  const filteredStudents = students.filter(
+    (s) =>
+      s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   function handleExportPDF() {
     setGeneratingPdf(true);
 
@@ -150,8 +157,7 @@ export default function ProgressoPage() {
       const doc = new jsPDF("p", "mm", "a4");
       const latestMetric = metrics.length > 0 ? metrics[metrics.length - 1] : null;
 
-      // 1. Cabeçalho Verde
-      doc.setFillColor(16, 185, 129); // Emerald 500
+      doc.setFillColor(16, 185, 129);
       doc.rect(0, 0, 210, 28, "F");
 
       doc.setTextColor(255, 255, 255);
@@ -159,7 +165,6 @@ export default function ProgressoPage() {
       doc.setFont("helvetica", "bold");
       doc.text("TAUIL FIT - RELATÓRIO DE PROGRESSO", 15, 18);
 
-      // 2. Informações do Aluno
       doc.setTextColor(30, 41, 59);
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
@@ -171,7 +176,6 @@ export default function ProgressoPage() {
       doc.setFont("helvetica", "normal");
       doc.text(`Data da Avaliação: ${dateText}`, 150, 38);
 
-      // 3. Quadro Resumo de Atividades
       doc.setFillColor(241, 245, 249);
       doc.roundedRect(15, 45, 180, 20, 3, 3, "F");
 
@@ -181,7 +185,6 @@ export default function ProgressoPage() {
       doc.text(`Treinos Concluídos: ${completedWorkoutsCount}`, 25, 57);
       doc.text(`Avaliações Registradas: ${metrics.length}`, 115, 57);
 
-      // 4. Última Avaliação Física
       if (latestMetric) {
         doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
@@ -221,7 +224,6 @@ export default function ProgressoPage() {
         doc.text(`${latestMetric.height ? `${latestMetric.height} cm` : "-"}`, 165, 95);
       }
 
-      // 5. Desenhar Gráficos Vetoriais de Evolução
       if (metrics.length > 0) {
         let currentY = 115;
 
@@ -239,7 +241,6 @@ export default function ProgressoPage() {
           const graphWidth = 165;
           const graphHeight = 40;
 
-          // Moldura do Gráfico
           doc.setFillColor(250, 250, 250);
           doc.rect(graphX, graphY, graphWidth, graphHeight, "F");
           doc.setDrawColor(226, 232, 240);
@@ -261,11 +262,6 @@ export default function ProgressoPage() {
             };
           });
 
-          // Desenhar Linhas Tracejadas da Grelha
-          doc.setLineWidth(0.2);
-          doc.setDrawColor(203, 213, 225);
-
-          // Linha da Curva Verde
           doc.setLineWidth(1);
           doc.setDrawColor(16, 185, 129);
 
@@ -273,7 +269,6 @@ export default function ProgressoPage() {
             doc.line(points[i].x, points[i].y, points[i + 1].x, points[i + 1].y);
           }
 
-          // Desenhar Pontos e Rótulos
           points.forEach((p) => {
             doc.setFillColor(16, 185, 129);
             doc.circle(p.x, p.y, 1.5, "F");
@@ -296,7 +291,6 @@ export default function ProgressoPage() {
         drawPdfGraph("body_fat", "EVOLUÇÃO DE GORDURA (%)", "%");
       }
 
-      // Rodapé
       doc.setFontSize(8);
       doc.setTextColor(148, 163, 184);
       doc.setFont("helvetica", "normal");
@@ -311,7 +305,6 @@ export default function ProgressoPage() {
     }
   }
 
-  // Renderização exata na tela web com curva e eixos
   function renderExactChart(dataKey: "weight" | "body_fat", title: string) {
     const validMetrics = metrics.filter((m) => m[dataKey] !== null && m[dataKey] !== undefined);
     if (validMetrics.length === 0) return null;
@@ -469,25 +462,47 @@ export default function ProgressoPage() {
         </button>
       </header>
 
-      {/* Seletor de Aluno para o Personal */}
+      {/* Seletor de Aluno com Busca para o Personal */}
       {isPersonal && students.length > 0 && (
-        <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center justify-between gap-3">
-          <label className="text-xs font-bold text-zinc-400 flex items-center gap-2 uppercase">
-            <Users className="w-4 h-4 text-emerald-400" /> Selecionar Aluno:
-          </label>
-          <div className="relative flex-1 max-w-xs">
-            <select
-              value={selectedStudentId}
-              onChange={(e) => handleStudentChange(e.target.value)}
-              className="w-full appearance-none px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white font-bold focus:outline-none focus:border-emerald-500"
-            >
-              {students.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} ({s.email})
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="w-4 h-4 text-zinc-400 absolute right-3 top-3 pointer-events-none" />
+        <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-emerald-400 flex items-center gap-2 uppercase">
+              <Users className="w-4 h-4 text-emerald-400" /> SELECIONAR ALUNO ({filteredStudents.length}/{students.length})
+            </label>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 absolute left-3 top-3 text-zinc-500" />
+              <input
+                type="text"
+                placeholder="Buscar por nome ou e-mail..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors"
+              />
+            </div>
+
+            <div className="relative flex-1">
+              <select
+                value={selectedStudentId}
+                onChange={(e) => handleStudentChange(e.target.value)}
+                className="w-full appearance-none px-4 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white font-bold focus:outline-none focus:border-emerald-500 cursor-pointer"
+              >
+                {filteredStudents.length === 0 ? (
+                  <option value="" disabled>
+                    Nenhum aluno encontrado
+                  </option>
+                ) : (
+                  filteredStudents.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.email})
+                    </option>
+                  ))
+                )}
+              </select>
+              <ChevronDown className="w-4 h-4 text-zinc-400 absolute right-3 top-2.5 pointer-events-none" />
+            </div>
           </div>
         </div>
       )}
@@ -577,7 +592,7 @@ export default function ProgressoPage() {
             </div>
           )}
 
-          {/* Gráficos em Onda Identicamente Formatados na Tela */}
+          {/* Gráficos em Onda */}
           {metrics.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {renderExactChart("weight", "EVOLUÇÃO DE PESO (KG)")}
