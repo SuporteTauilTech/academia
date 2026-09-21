@@ -13,6 +13,10 @@ import {
   Trash2,
   Activity,
   ArrowLeft,
+  Search,
+  UserCheck,
+  ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import CreateWorkoutModal from "@/components/CreateWorkoutModal";
 import EditWorkoutModal from "@/components/EditWorkoutModal";
@@ -44,6 +48,7 @@ interface Workout {
 export default function FichasDeTreinoPage() {
   const router = useRouter();
   const [students, setStudents] = useState<UserProfile[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedStudentId, setSelectedStudentId] = useState<string>("");
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null);
@@ -54,6 +59,7 @@ export default function FichasDeTreinoPage() {
 
   const [loading, setLoading] = useState(true);
   const [loadingWorkouts, setLoadingWorkouts] = useState(false);
+  const [showStudentList, setShowStudentList] = useState(false);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -71,32 +77,38 @@ export default function FichasDeTreinoPage() {
         return;
       }
 
-      // Busca alunos para o selector
-      const { data: usersData } = await supabase
+      // Busca unificada garantindo tratamento de nome 'Usuário' -> Fallback E-mail
+      let { data: usersData } = await supabase
         .from("users")
         .select("*")
         .neq("email", "xiton@personal.com");
 
+      if (!usersData || usersData.length === 0) {
+        const { data: profilesData } = await supabase
+          .from("profiles")
+          .select("*")
+          .neq("email", "xiton@personal.com");
+        usersData = profilesData;
+      }
+
       if (usersData && usersData.length > 0) {
-        const mappedStudents: UserProfile[] = usersData.map((u) => ({
-          id: u.id,
-          name: u.name || u.full_name || "Jogador",
-          email: u.email || "",
-          role: u.role || "aluno",
-        }));
+        const mappedStudents: UserProfile[] = usersData.map((u) => {
+          const rawName = u.name || u.full_name;
+          const fallbackName = u.email ? u.email.split("@")[0] : "Aluno";
+          const displayName =
+            rawName && rawName !== "Usuário" ? rawName : fallbackName;
+
+          return {
+            id: u.id,
+            name: displayName.charAt(0).toUpperCase() + displayName.slice(1),
+            email: u.email || "",
+            role: u.role || "aluno",
+          };
+        });
+
         setStudents(mappedStudents);
         setSelectedStudentId(mappedStudents[0].id);
         fetchWorkouts(mappedStudents[0].id);
-      } else {
-        const fallbackStudent: UserProfile = {
-          id: "b99db051-cb24-4e38-a257-1947d3fad63a",
-          name: "Jogador",
-          email: "jogadorteste2020@gmail.com",
-          role: "aluno",
-        };
-        setStudents([fallbackStudent]);
-        setSelectedStudentId(fallbackStudent.id);
-        fetchWorkouts(fallbackStudent.id);
       }
 
       setLoading(false);
@@ -120,20 +132,30 @@ export default function FichasDeTreinoPage() {
       } else {
         setSelectedWorkout(null);
       }
+    } else {
+      setWorkouts([]);
+      setSelectedWorkout(null);
     }
     setLoadingWorkouts(false);
   }
 
   function handleStudentChange(studentId: string) {
     setSelectedStudentId(studentId);
+    setSelectedWorkout(null);
     fetchWorkouts(studentId);
+    setShowStudentList(false);
   }
 
   async function handleDeleteWorkout(workoutId: string) {
-    const confirmDelete = confirm("Tem certeza que deseja excluir esta ficha de treino?");
+    const confirmDelete = confirm(
+      "Tem certeza que deseja excluir esta ficha de treino?"
+    );
     if (!confirmDelete) return;
 
-    const { error } = await supabase.from("workouts").delete().eq("id", workoutId);
+    const { error } = await supabase
+      .from("workouts")
+      .delete()
+      .eq("id", workoutId);
 
     if (error) {
       alert("Erro ao excluir ficha de treino.");
@@ -142,6 +164,13 @@ export default function FichasDeTreinoPage() {
       fetchWorkouts(selectedStudentId);
     }
   }
+
+  // Filtragem dinâmica por nome ou e-mail
+  const filteredStudents = students.filter(
+    (s) =>
+      s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   if (loading) {
     return (
@@ -154,7 +183,7 @@ export default function FichasDeTreinoPage() {
   const currentStudent = students.find((s) => s.id === selectedStudentId);
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-white p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
+    <main className="min-h-screen bg-zinc-950 text-white p-4 sm:p-6 max-w-5xl mx-auto space-y-6 pb-20">
       <header className="flex items-center justify-between pb-4 border-b border-zinc-800">
         <div className="flex items-center gap-3">
           <button
@@ -175,46 +204,113 @@ export default function FichasDeTreinoPage() {
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Painel Esquerdo: Criar Ficha e Selecionar Aluno */}
+        {/* Painel Esquerdo: Busca, Seleção e Ações */}
         <div className="space-y-4">
           <div className="p-5 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-4">
-            <h3 className="text-xs font-semibold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
-              <Users className="w-4 h-4" /> Selecionar Aluno
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                <Users className="w-4 h-4" /> Selecionar Aluno
+              </h3>
+              <span className="text-[10px] text-zinc-500 font-bold">
+                {filteredStudents.length} aluno(s)
+              </span>
+            </div>
 
+            {/* Campo de Pesquisa */}
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-3 text-zinc-500" />
+              <input
+                type="text"
+                placeholder="Buscar aluno por nome..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
+              />
+            </div>
+
+            {/* Menu Suspenso Corrigido (Nomes formatados) */}
             <select
               value={selectedStudentId}
               onChange={(e) => handleStudentChange(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-white focus:border-emerald-500 focus:outline-none"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-white font-bold focus:border-emerald-500 focus:outline-none"
             >
-              {students.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
+              {filteredStudents.length === 0 ? (
+                <option value="" disabled>
+                  Nenhum aluno encontrado
                 </option>
-              ))}
+              ) : (
+                filteredStudents.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.email})
+                  </option>
+                ))
+              )}
             </select>
+
+            {/* Botão de Alternância para Lista Extensível (Útil quando houver mais de 5 alunos) */}
+            <button
+              onClick={() => setShowStudentList(!showStudentList)}
+              className="w-full py-2 px-3 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-zinc-400 hover:text-white flex items-center justify-between transition-colors"
+            >
+              <span>Ver lista completa</span>
+              {showStudentList ? (
+                <ChevronDown className="w-4 h-4 text-emerald-400" />
+              ) : (
+                <ChevronRight className="w-4 h-4 text-zinc-500" />
+              )}
+            </button>
+
+            {/* Lista Expandida em Cartões (Visualização alternativa) */}
+            {showStudentList && (
+              <div className="space-y-2 max-h-48 overflow-y-auto pt-2 border-t border-zinc-800/80 pr-1">
+                {filteredStudents.map((s) => {
+                  const isSelected = selectedStudentId === s.id;
+                  return (
+                    <div
+                      key={s.id}
+                      onClick={() => handleStudentChange(s.id)}
+                      className={`p-2.5 rounded-xl border text-xs cursor-pointer flex items-center justify-between transition-all ${
+                        isSelected
+                          ? "bg-emerald-950/40 border-emerald-500 text-white font-bold"
+                          : "bg-zinc-950 border-zinc-800/80 text-zinc-400 hover:text-white"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <UserCheck className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                        <span className="truncate">{s.name}</span>
+                      </div>
+                      <span className="text-[10px] text-zinc-500 truncate max-w-[100px]">
+                        {s.email}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             <div className="pt-2 flex flex-col gap-2">
               <button
                 onClick={() => setIsCreateModalOpen(true)}
-                className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-medium text-xs text-white transition-colors flex items-center justify-center gap-2"
+                disabled={!currentStudent}
+                className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-xs text-white transition-colors flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/50 disabled:opacity-50 cursor-pointer"
               >
                 <Plus className="w-4 h-4" /> Nova Ficha de Treino
               </button>
 
               <button
                 onClick={() => setIsMetricsModalOpen(true)}
-                className="w-full py-2.5 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 font-medium text-xs text-emerald-400 transition-colors flex items-center justify-center gap-2"
+                disabled={!currentStudent}
+                className="w-full py-2.5 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 font-semibold text-xs text-emerald-400 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
               >
                 <Activity className="w-4 h-4" /> Nova Avaliação Física
               </button>
             </div>
           </div>
 
-          {/* Lista de Fichas do Aluno Selecionado */}
+          {/* Lista de Fichas do Aluno */}
           <div className="p-5 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-3">
             <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-              Fichas do Aluno ({workouts.length})
+              Fichas de {currentStudent?.name || "Aluno"} ({workouts.length})
             </h3>
 
             {loadingWorkouts ? (
@@ -222,26 +318,36 @@ export default function FichasDeTreinoPage() {
                 <Loader2 className="w-5 h-5 text-emerald-500 animate-spin" />
               </div>
             ) : workouts.length === 0 ? (
-              <p className="text-xs text-zinc-500 py-2">Nenhuma ficha cadastrada.</p>
+              <p className="text-xs text-zinc-500 py-2">
+                Nenhuma ficha cadastrada.
+              </p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                 {workouts.map((w) => (
                   <div
                     key={w.id}
                     onClick={() => setSelectedWorkout(w)}
                     className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
                       selectedWorkout?.id === w.id
-                        ? "bg-emerald-950/20 border-emerald-500/50 text-white"
+                        ? "bg-emerald-950/30 border-emerald-500/60 text-white shadow-md shadow-emerald-950/30"
                         : "bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700"
                     }`}
                   >
                     <div>
-                      <h4 className="text-xs font-bold text-white">{w.title}</h4>
+                      <h4 className="text-xs font-bold text-white">
+                        {w.title}
+                      </h4>
                       <p className="text-[10px] text-zinc-500">
                         {w.exercises?.length || 0} exercícios
                       </p>
                     </div>
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    <CheckCircle2
+                      className={`w-4 h-4 ${
+                        selectedWorkout?.id === w.id
+                          ? "text-emerald-400"
+                          : "text-zinc-600"
+                      }`}
+                    />
                   </div>
                 ))}
               </div>
@@ -249,7 +355,7 @@ export default function FichasDeTreinoPage() {
           </div>
         </div>
 
-        {/* Painel Direito: Detalhes da Ficha Selecionada */}
+        {/* Painel Direito: Exercícios da Ficha */}
         <div className="md:col-span-2">
           {selectedWorkout ? (
             <div className="p-6 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-6">
@@ -267,14 +373,14 @@ export default function FichasDeTreinoPage() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setEditingWorkout(selectedWorkout)}
-                    className="p-2 text-zinc-400 hover:text-emerald-400 transition-colors bg-zinc-950 border border-zinc-800 rounded-lg"
+                    className="p-2 text-zinc-400 hover:text-emerald-400 transition-colors bg-zinc-950 border border-zinc-800 rounded-lg cursor-pointer"
                     title="Editar ficha"
                   >
                     <Pencil className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleDeleteWorkout(selectedWorkout.id)}
-                    className="p-2 text-zinc-500 hover:text-red-400 transition-colors bg-zinc-950 border border-zinc-800 rounded-lg"
+                    className="p-2 text-zinc-500 hover:text-red-400 transition-colors bg-zinc-950 border border-zinc-800 rounded-lg cursor-pointer"
                     title="Excluir ficha"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -282,32 +388,40 @@ export default function FichasDeTreinoPage() {
                 </div>
               </div>
 
-              {/* Lista de Exercicios */}
               <div className="space-y-3">
                 <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
                   Exercícios do Treino
                 </h3>
 
                 <div className="space-y-2">
-                  {selectedWorkout.exercises.map((ex, idx) => (
-                    <div
-                      key={ex.id}
-                      className="p-3.5 bg-zinc-950 border border-zinc-800/80 rounded-xl flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="w-6 h-6 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-bold text-emerald-400 flex items-center justify-center">
-                          {idx + 1}
-                        </span>
-                        <span className="text-xs font-semibold text-white">
-                          {ex.name}
+                  {selectedWorkout.exercises &&
+                  selectedWorkout.exercises.length > 0 ? (
+                    selectedWorkout.exercises.map((ex, idx) => (
+                      <div
+                        key={ex.id}
+                        className="p-3.5 bg-zinc-950 border border-zinc-800/80 rounded-xl flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="w-6 h-6 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-bold text-emerald-400 flex items-center justify-center">
+                            {idx + 1}
+                          </span>
+                          <span className="text-xs font-semibold text-white">
+                            {ex.name}
+                          </span>
+                        </div>
+                        <span className="text-xs text-zinc-400 font-medium">
+                          {ex.sets} séries × {ex.reps} reps •{" "}
+                          <strong className="text-emerald-400">
+                            {ex.weight} kg
+                          </strong>
                         </span>
                       </div>
-                      <span className="text-xs text-zinc-400 font-medium">
-                        {ex.sets} séries × {ex.reps} reps •{" "}
-                        <strong className="text-emerald-400">{ex.weight} kg</strong>
-                      </span>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <p className="text-xs text-zinc-500 py-2">
+                      Nenhum exercício cadastrado nesta ficha.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

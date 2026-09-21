@@ -26,36 +26,44 @@ export default function LoginPage() {
 
     try {
       if (isSignUp) {
-        // Criar nova conta
+        const studentName = name.trim() || email.split("@")[0];
+
         const { data, error } = await supabase.auth.signUp({
-          email,
+          email: email.trim(),
           password,
           options: {
             data: {
-              full_name: name,
+              full_name: studentName,
+              name: studentName,
             },
           },
         });
 
         if (error) throw error;
 
-        // Inserir na tabela de usuários
         if (data.user) {
-          await supabase.from("users").insert([
+          await supabase.from("users").upsert([
             {
               id: data.user.id,
               email: data.user.email,
-              name: name || email.split("@")[0],
+              name: studentName,
               role: "aluno",
+              status: "ativo",
             },
           ]);
         }
 
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+
+        if (signInError) throw signInError;
+
         router.push("/");
       } else {
-        // Fazer login
         const { error } = await supabase.auth.signInWithPassword({
-          email,
+          email: email.trim(),
           password,
         });
 
@@ -78,7 +86,7 @@ export default function LoginPage() {
             <Dumbbell className="w-6 h-6" />
           </div>
           <h1 className="text-xl font-bold text-white tracking-tight">
-            Tauil Performance
+            Tauil Fit
           </h1>
           <p className="text-xs text-zinc-400">
             {isSignUp
@@ -97,11 +105,11 @@ export default function LoginPage() {
           {isSignUp && (
             <div className="space-y-1">
               <label className="text-xs font-semibold text-zinc-300">
-                Seu Nome
+                Nome do Aluno
               </label>
               <input
                 type="text"
-                placeholder="Ex: João Silva"
+                placeholder="Ex: Carlos Silva"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required={isSignUp}

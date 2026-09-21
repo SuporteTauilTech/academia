@@ -7,8 +7,6 @@ import {
   Dumbbell,
   Users,
   Loader2,
-  ChevronRight,
-  UserCheck,
   CheckCircle2,
   Save,
   Trash2,
@@ -22,6 +20,7 @@ import {
   LineChart,
   LogOut,
   DollarSign,
+  Search,
 } from "lucide-react";
 import CreateWorkoutModal from "@/components/CreateWorkoutModal";
 import EditWorkoutModal from "@/components/EditWorkoutModal";
@@ -63,6 +62,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [students, setStudents] = useState<UserProfile[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<UserProfile | null>(null);
   const [selectedStudentWorkouts, setSelectedStudentWorkouts] = useState<Workout[]>([]);
   const [selectedStudentMetrics, setSelectedStudentMetrics] = useState<BodyMetric[]>([]);
@@ -93,6 +93,7 @@ export default function DashboardPage() {
     const { data: logs } = await supabase
       .from("workout_logs")
       .select("workout_id, created_at")
+      .eq("student_id", studentId)
       .order("created_at", { ascending: false });
 
     if (logs && logs.length > 0) {
@@ -120,17 +121,12 @@ export default function DashboardPage() {
         .eq("id", user.id)
         .maybeSingle();
 
-      if (userData?.status === "pendente") {
-        router.push("/aguardando-aprovacao");
-        return;
-      }
-
-      const isPersonal = userData?.role === "personal" || user.email === "xiton@personal.com";
+      const isPersonal = userData?.role === "personal" || user.email?.toLowerCase() === "xiton@personal.com";
       const determinedRole = isPersonal ? "personal" : (userData?.role || "aluno");
 
       const currentUserProfile: UserProfile = {
         id: user.id,
-        name: userData?.full_name || (isPersonal ? "Xiton Personal" : user.email?.split("@")[0] || "Usuário"),
+        name: userData?.full_name || (isPersonal ? "Tauil Fit" : user.email?.split("@")[0] || "Aluno"),
         email: user.email || "",
         role: determinedRole as "personal" | "aluno" | "student",
         status: userData?.status || "ativo",
@@ -139,40 +135,35 @@ export default function DashboardPage() {
       setProfile(currentUserProfile);
 
       if (currentUserProfile.role === "personal") {
-        const { data: usersData } = await supabase
-          .from("users")
-          .select("*")
-          .neq("email", "xiton@personal.com");
+        let { data: usersData } = await supabase.from("users").select("*");
 
-        if (usersData && usersData.length > 0) {
-          const mappedStudents: UserProfile[] = usersData.map((u) => ({
-            id: u.id,
-            name: u.full_name || u.name || "Jogador",
-            email: u.email || "",
-            role: u.role || "aluno",
-            status: u.status || "ativo",
-          }));
-          setStudents(mappedStudents);
-          setSelectedStudent(mappedStudents[0]);
-          fetchSelectedStudentData(mappedStudents[0].id);
-        } else {
-          const { data: profilesData } = await supabase
-            .from("profiles")
-            .select("*")
-            .neq("id", user.id);
+        if (!usersData || usersData.length === 0) {
+          const { data: profilesData } = await supabase.from("profiles").select("*");
+          usersData = profilesData;
+        }
 
-          if (profilesData && profilesData.length > 0) {
-            const mappedProfiles: UserProfile[] = profilesData.map((u) => ({
+        const filteredUsers = (usersData || []).filter(
+          (u) => u.email?.toLowerCase() !== "xiton@personal.com"
+        );
+
+        if (filteredUsers.length > 0) {
+          const mappedStudents: UserProfile[] = filteredUsers.map((u) => {
+            const rawName = u.name || u.full_name;
+            const fallbackName = u.email ? u.email.split("@")[0] : "Aluno";
+            const displayName = rawName && rawName !== "Usuário" ? rawName : fallbackName;
+
+            return {
               id: u.id,
-              name: u.full_name || u.name || "Jogador",
+              name: displayName.charAt(0).toUpperCase() + displayName.slice(1),
               email: u.email || "",
               role: u.role || "aluno",
               status: u.status || "ativo",
-            }));
-            setStudents(mappedProfiles);
-            setSelectedStudent(mappedProfiles[0]);
-            fetchSelectedStudentData(mappedProfiles[0].id);
-          }
+            };
+          });
+
+          setStudents(mappedStudents);
+          setSelectedStudent(mappedStudents[0]);
+          fetchSelectedStudentData(mappedStudents[0].id);
         }
       } else {
         await fetchStudentWorkouts(user.id);
@@ -211,15 +202,19 @@ export default function DashboardPage() {
     setLoadingWorkouts(false);
   }
 
-  function handleSelectStudent(student: UserProfile) {
-    setSelectedStudent(student);
-    fetchSelectedStudentData(student.id);
+  function handleSelectStudentById(studentId: string) {
+    const student = students.find((s) => s.id === studentId);
+    if (student) {
+      setSelectedStudent(student);
+      fetchSelectedStudentData(student.id);
+    }
   }
 
   async function fetchStudentWorkouts(studentId: string) {
     const { data: workoutsData, error } = await supabase
       .from("workouts")
       .select("*, exercises(*)")
+      .eq("student_id", studentId)
       .order("created_at", { ascending: false });
 
     if (!error && workoutsData) {
@@ -310,6 +305,12 @@ export default function DashboardPage() {
     setCompletingWorkoutId(null);
   }
 
+  const filteredStudents = students.filter(
+    (s) =>
+      s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-zinc-950 text-white">
@@ -323,12 +324,12 @@ export default function DashboardPage() {
       <header className="space-y-4 pb-4 border-b border-zinc-800">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
-              <Dumbbell className="w-6 h-6 text-emerald-500" />
+            <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-400">
+              <Dumbbell className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-base font-bold">{profile?.name || "Usuário"}</h1>
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-zinc-800 text-emerald-400 font-medium">
+              <h1 className="text-base font-bold">{profile?.name || "Tauil Fit"}</h1>
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
                 {profile?.role === "personal" ? "Personal Trainer" : "Aluno"}
               </span>
             </div>
@@ -349,13 +350,13 @@ export default function DashboardPage() {
             <>
               <button
                 onClick={() => router.push("/")}
-                className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-900/30"
+                className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-950/50 transition-all hover:bg-emerald-500"
               >
                 <Dumbbell className="w-3.5 h-3.5" /> Treinos
               </button>
               <button
                 onClick={() => router.push("/fichas-de-treino")}
-                className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 transition-colors"
+                className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-950/50 transition-all hover:bg-emerald-500"
               >
                 <FileText className="w-3.5 h-3.5" /> Fichas
               </button>
@@ -363,7 +364,7 @@ export default function DashboardPage() {
           ) : (
             <button
               onClick={() => router.push("/")}
-              className="col-span-2 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-900/30"
+              className="col-span-2 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-950/50 transition-all hover:bg-emerald-500"
             >
               <Dumbbell className="w-3.5 h-3.5" /> Meu Treino
             </button>
@@ -371,68 +372,67 @@ export default function DashboardPage() {
 
           <button
             onClick={() => router.push("/progresso")}
-            className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 transition-colors"
+            className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-950/50 transition-all hover:bg-emerald-500"
           >
             <LineChart className="w-3.5 h-3.5" /> Progresso
           </button>
 
           <button
             onClick={() => router.push("/financeiro")}
-            className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 transition-colors"
+            className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-950/50 transition-all hover:bg-emerald-500"
           >
-            <DollarSign className="w-3.5 h-3.5 text-emerald-400" /> Financeiro
+            <DollarSign className="w-3.5 h-3.5" /> Financeiro
           </button>
         </div>
       </header>
 
       {profile?.role === "personal" && (
-        <section className="space-y-6">
-          <div className="space-y-3">
-            <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-2">
-              <Users className="w-4 h-4 text-emerald-500" /> Meus Alunos ({students.length})
-            </h2>
+        <section className="space-y-4">
+          <div className="p-5 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                <Users className="w-4 h-4" /> SELECIONAR ALUNO ({filteredStudents.length}/{students.length})
+              </h2>
+            </div>
 
-            {students.length === 0 ? (
-              <div className="p-6 text-center bg-zinc-900/50 border border-zinc-800 rounded-2xl">
-                <p className="text-xs text-zinc-400 font-medium">Nenhum aluno cadastrado no momento.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {students.map((student) => {
-                  const isSelected = selectedStudent?.id === student.id;
-                  return (
-                    <button
-                      key={student.id}
-                      onClick={() => handleSelectStudent(student)}
-                      className={`p-4 rounded-2xl text-left border transition-all flex items-center justify-between ${
-                        isSelected
-                          ? "bg-emerald-500/10 border-emerald-500/40 text-white shadow-lg shadow-emerald-950/40"
-                          : "bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800/80"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2.5 rounded-xl ${isSelected ? "bg-emerald-500 text-black" : "bg-zinc-800 text-zinc-400"}`}>
-                          <UserCheck className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <p className="font-bold text-sm">{student.name}</p>
-                          <p className="text-xs text-zinc-500">{student.email}</p>
-                        </div>
-                      </div>
-                      <ChevronRight className={`w-4 h-4 ${isSelected ? "text-emerald-400" : "text-zinc-600"}`} />
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+            {/* Campo de Busca por Nome ou E-mail */}
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-3 text-zinc-500" />
+              <input
+                type="text"
+                placeholder="Buscar aluno por nome ou e-mail..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors"
+              />
+            </div>
+
+            {/* Menu Suspenso Compacto e Limpo */}
+            <select
+              value={selectedStudent?.id || ""}
+              onChange={(e) => handleSelectStudentById(e.target.value)}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-white font-bold focus:border-emerald-500 focus:outline-none cursor-pointer"
+            >
+              {filteredStudents.length === 0 ? (
+                <option value="" disabled>
+                  Nenhum aluno encontrado
+                </option>
+              ) : (
+                filteredStudents.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.email})
+                  </option>
+                ))
+              )}
+            </select>
           </div>
 
           {selectedStudent && (
-            <div className="space-y-6 pt-4 border-t border-zinc-800">
+            <div className="space-y-6 pt-2 border-t border-zinc-800">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-900/80 p-4 rounded-2xl border border-zinc-800">
                 <div>
                   <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-emerald-500" />
+                    <Activity className="w-5 h-5 text-emerald-400" />
                     Gerenciando: {selectedStudent.name}
                   </h3>
                   <p className="text-xs text-zinc-400">Monte treinos e acompanhe métricas corporais</p>
@@ -441,13 +441,13 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setIsMetricsModalOpen(true)}
-                    className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-xs font-bold text-white rounded-xl border border-zinc-700 transition-colors"
+                    className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white rounded-xl shadow-lg shadow-emerald-950/50 transition-colors cursor-pointer"
                   >
-                    <Plus className="w-4 h-4 text-emerald-400" /> Avaliação
+                    <Plus className="w-4 h-4" /> Avaliação
                   </button>
                   <button
                     onClick={() => setIsModalOpen(true)}
-                    className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white rounded-xl shadow-md shadow-emerald-950/50 transition-colors"
+                    className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white rounded-xl shadow-lg shadow-emerald-950/50 transition-colors cursor-pointer"
                   >
                     <Plus className="w-4 h-4" /> Nova Ficha
                   </button>
@@ -461,7 +461,7 @@ export default function DashboardPage() {
               ) : (
                 <div className="space-y-4">
                   <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-emerald-500" /> Fichas de Treino ({selectedStudentWorkouts.length})
+                    <FileText className="w-4 h-4 text-emerald-400" /> Fichas de Treino ({selectedStudentWorkouts.length})
                   </h4>
 
                   {selectedStudentWorkouts.length === 0 ? (
@@ -476,14 +476,14 @@ export default function DashboardPage() {
                           <div className="flex items-center gap-1">
                             <button
                               onClick={() => setEditingWorkout(workout)}
-                              className="p-1.5 text-zinc-400 hover:text-emerald-400 rounded-lg hover:bg-zinc-800 transition-colors"
+                              className="p-1.5 text-zinc-400 hover:text-emerald-400 rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer"
                               title="Editar Ficha"
                             >
                               <Pencil className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDeleteWorkout(workout.id)}
-                              className="p-1.5 text-zinc-400 hover:text-red-400 rounded-lg hover:bg-zinc-800 transition-colors"
+                              className="p-1.5 text-zinc-400 hover:text-red-400 rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer"
                               title="Excluir Ficha"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -519,7 +519,7 @@ export default function DashboardPage() {
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-2">
-              <FileText className="w-4 h-4 text-emerald-500" /> Fichas de Treino Cadastradas ({studentWorkouts.length})
+              <FileText className="w-4 h-4 text-emerald-400" /> Fichas de Treino Cadastradas ({studentWorkouts.length})
             </h2>
           </div>
 
@@ -564,7 +564,7 @@ export default function DashboardPage() {
                         className={`py-1.5 px-3 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
                           isCompleted
                             ? "bg-zinc-800 text-emerald-400 border border-emerald-500/30 cursor-not-allowed opacity-90"
-                            : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-900/30 active:scale-95"
+                            : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-900/30 active:scale-95 cursor-pointer"
                         }`}
                       >
                         {isCompleting ? (
@@ -629,7 +629,7 @@ export default function DashboardPage() {
                               <button
                                 onClick={() => handleSaveWeight(exercise)}
                                 disabled={savingExerciseId === exercise.id}
-                                className="p-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors flex items-center justify-center"
+                                className="p-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors flex items-center justify-center cursor-pointer"
                                 title="Salvar carga"
                               >
                                 {savingExerciseId === exercise.id ? (
