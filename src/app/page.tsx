@@ -33,6 +33,7 @@ import CreateWorkoutModal from "@/components/CreateWorkoutModal";
 import EditWorkoutModal from "@/components/EditWorkoutModal";
 import AddMetricsModal from "@/components/AddMetricsModal";
 import WorkoutFeedbackModal from "@/components/WorkoutFeedbackModal";
+import StudentAttendanceModal from "@/components/StudentAttendanceModal";
 
 interface UserProfile {
   id: string;
@@ -82,6 +83,7 @@ export default function DashboardPage() {
   const [selectedStudentLogs, setSelectedStudentLogs] = useState<WorkoutLog[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMetricsModalOpen, setIsMetricsModalOpen] = useState(false);
+  const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const [editingWorkout, setEditingWorkout] = useState<Workout | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingWorkouts, setLoadingWorkouts] = useState(false);
@@ -446,36 +448,44 @@ export default function DashboardPage() {
             <>
               <button
                 onClick={() => router.push("/")}
-                className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-950/50 transition-all hover:bg-emerald-500"
+                className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-950/50 transition-all hover:bg-emerald-500 cursor-pointer"
               >
                 <Dumbbell className="w-3.5 h-3.5" /> Treinos
               </button>
               <button
                 onClick={() => router.push("/fichas-de-treino")}
-                className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-950/50 transition-all hover:bg-emerald-500"
+                className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-950/50 transition-all hover:bg-emerald-500 cursor-pointer"
               >
                 <FileText className="w-3.5 h-3.5" /> Fichas
               </button>
             </>
           ) : (
-            <button
-              onClick={() => router.push("/")}
-              className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-950/50 transition-all hover:bg-emerald-500"
-            >
-              <Dumbbell className="w-3.5 h-3.5" /> Meu Treino
-            </button>
+            <>
+              <button
+                onClick={() => router.push("/")}
+                className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-950/50 transition-all hover:bg-emerald-500 cursor-pointer"
+              >
+                <Dumbbell className="w-3.5 h-3.5" /> Meu Treino
+              </button>
+              <button
+                onClick={() => setIsAttendanceModalOpen(true)}
+                className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-950/50 transition-all hover:bg-emerald-500 cursor-pointer"
+              >
+                <Calendar className="w-3.5 h-3.5" /> Frequência
+              </button>
+            </>
           )}
 
           <button
             onClick={() => router.push("/progresso")}
-            className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-950/50 transition-all hover:bg-emerald-500"
+            className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-950/50 transition-all hover:bg-emerald-500 cursor-pointer"
           >
             <LineChart className="w-3.5 h-3.5" /> Progresso
           </button>
 
           <button
             onClick={() => router.push("/financeiro")}
-            className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-950/50 transition-all hover:bg-emerald-500"
+            className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-950/50 transition-all hover:bg-emerald-500 cursor-pointer"
           >
             <DollarSign className="w-3.5 h-3.5" /> Financeiro
           </button>
@@ -864,6 +874,13 @@ export default function DashboardPage() {
           onConfirm={handleSaveWorkoutFeedback}
           onClose={() => setActiveFeedbackWorkout(null)}
           loading={submittingFeedback}
+        />
+      )}
+
+      {isAttendanceModalOpen && profile && (
+        <StudentAttendanceModal
+          studentId={profile.id}
+          onClose={() => setIsAttendanceModalOpen(false)}
         />
       )}
 
