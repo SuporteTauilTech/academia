@@ -25,6 +25,9 @@ import {
   MessageCircle,
   Bell,
   Send,
+  Calendar,
+  UserCheck,
+  UserX,
 } from "lucide-react";
 import CreateWorkoutModal from "@/components/CreateWorkoutModal";
 import EditWorkoutModal from "@/components/EditWorkoutModal";
@@ -36,7 +39,7 @@ interface UserProfile {
   name: string;
   email: string;
   role: "personal" | "aluno" | "student";
-  status?: string;
+  status?: "ativo" | "inativo";
 }
 
 interface Exercise {
@@ -61,13 +64,22 @@ interface Announcement {
   created_at: string;
 }
 
+interface WorkoutLog {
+  id: string;
+  workout_id: string;
+  workout_title: string;
+  created_at: string;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [students, setStudents] = useState<UserProfile[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"todos" | "ativo" | "inativo">("ativo");
   const [selectedStudent, setSelectedStudent] = useState<UserProfile | null>(null);
   const [selectedStudentWorkouts, setSelectedStudentWorkouts] = useState<Workout[]>([]);
+  const [selectedStudentLogs, setSelectedStudentLogs] = useState<WorkoutLog[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMetricsModalOpen, setIsMetricsModalOpen] = useState(false);
   const [editingWorkout, setEditingWorkout] = useState<Workout | null>(null);
@@ -100,7 +112,7 @@ export default function DashboardPage() {
       .select("*")
       .order("created_at", { ascending: false })
       .limit(5);
-      
+
     if (!error && data) {
       setAnnouncements(data);
     }
@@ -115,7 +127,7 @@ export default function DashboardPage() {
 
     const { data: logs } = await supabase
       .from("workout_logs")
-      .select("workout_id")
+      .select("workout_id, created_at")
       .eq("student_id", studentId);
 
     if (logs && logs.length > 0) {
@@ -181,13 +193,14 @@ export default function DashboardPage() {
               name: displayName.charAt(0).toUpperCase() + displayName.slice(1),
               email: u.email || "",
               role: u.role || "aluno",
-              status: u.status || "ativo",
+              status: u.status === "inativo" ? "inativo" : "ativo",
             };
           });
 
           setStudents(mappedStudents);
-          setSelectedStudent(mappedStudents[0]);
-          fetchSelectedStudentData(mappedStudents[0].id);
+          const firstActive = mappedStudents.find((s) => s.status === "ativo") || mappedStudents[0];
+          setSelectedStudent(firstActive);
+          fetchSelectedStudentData(firstActive.id);
         }
       } else {
         await fetchStudentWorkouts(user.id);
@@ -213,6 +226,17 @@ export default function DashboardPage() {
       setSelectedStudentWorkouts(workoutsData as Workout[]);
     }
 
+    const { data: logsData } = await supabase
+      .from("workout_logs")
+      .select("*")
+      .eq("student_id", studentId)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (logsData) {
+      setSelectedStudentLogs(logsData as WorkoutLog[]);
+    }
+
     setLoadingWorkouts(false);
   }
 
@@ -222,6 +246,26 @@ export default function DashboardPage() {
       setSelectedStudent(student);
       fetchSelectedStudentData(student.id);
     }
+  }
+
+  async function handleToggleStudentStatus(student: UserProfile) {
+    const currentStatus = student.status || "ativo";
+    const newStatus: "ativo" | "inativo" = currentStatus === "ativo" ? "inativo" : "ativo";
+    const confirmMsg = `Deseja alterar o status de ${student.name} para ${newStatus.toUpperCase()}?`;
+    if (!confirm(confirmMsg)) return;
+
+    await supabase.from("profiles").update({ status: newStatus }).eq("id", student.id);
+    await supabase.from("users").update({ status: newStatus }).eq("id", student.id);
+
+    setStudents((prev) =>
+      prev.map((s) => (s.id === student.id ? { ...s, status: newStatus } : s))
+    );
+
+    if (selectedStudent?.id === student.id) {
+      setSelectedStudent({ ...selectedStudent, status: newStatus });
+    }
+
+    alert(`Status do aluno atualizado para ${newStatus}!`);
   }
 
   async function fetchStudentWorkouts(studentId: string) {
@@ -268,11 +312,21 @@ export default function DashboardPage() {
       await fetchAnnouncements();
       alert("Aviso publicado com sucesso!");
     } else {
-      console.error("Erro Supabase ao enviar aviso:", error);
       alert(`Erro no Supabase: ${error.message}`);
     }
 
     setSendingNotice(false);
+  }
+
+  async function handleDeleteNotice(id: string) {
+    if (!confirm("Tem certeza que deseja apagar este aviso?")) return;
+    const { error } = await supabase.from("announcements").delete().eq("id", id);
+    if (!error) {
+      await fetchAnnouncements();
+      alert("Aviso removido com sucesso!");
+    } else {
+      alert("Erro ao remover aviso.");
+    }
   }
 
   async function handleSaveWorkoutFeedback(intensity: string) {
@@ -344,11 +398,14 @@ export default function DashboardPage() {
     setSavingExerciseId(null);
   }
 
-  const filteredStudents = students.filter(
-    (s) =>
+  const filteredStudents = students.filter((s) => {
+    const matchesSearch =
       s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+      s.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const studentStatus = s.status || "ativo";
+    const matchesStatus = statusFilter === "todos" || studentStatus === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   if (loading) {
     return (
@@ -433,12 +490,24 @@ export default function DashboardPage() {
           </h3>
           <div className="space-y-2">
             {announcements.map((item) => (
-              <div key={item.id} className="p-3 bg-zinc-900 rounded-xl border border-zinc-800">
-                <p className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-                  {item.title}
-                </p>
-                <p className="text-xs text-zinc-300 mt-1 pl-3.5 leading-relaxed">{item.message}</p>
+              <div key={item.id} className="p-3 bg-zinc-900 rounded-xl border border-zinc-800 flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                    {item.title}
+                  </p>
+                  <p className="text-xs text-zinc-300 mt-1 pl-3.5 leading-relaxed">{item.message}</p>
+                </div>
+
+                {profile?.role === "personal" && (
+                  <button
+                    onClick={() => handleDeleteNotice(item.id)}
+                    className="p-1 text-zinc-500 hover:text-red-400 rounded-lg transition-colors cursor-pointer"
+                    title="Apagar Aviso"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -447,6 +516,7 @@ export default function DashboardPage() {
 
       {profile?.role === "personal" && (
         <section className="space-y-4">
+          {/* Criar Notificação / Aviso */}
           <div className="p-5 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-3">
             <h2 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
               <Bell className="w-4 h-4" /> Disparar Notificação / Lembrete
@@ -475,6 +545,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* Selecionar Aluno e Filtros de Status */}
           <div className="p-5 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <h2 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
@@ -498,15 +569,39 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-3 text-zinc-500" />
-              <input
-                type="text"
-                placeholder="Buscar aluno por nome ou e-mail..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors"
-              />
+            {/* Filtros de Ativos/Inativos e Busca */}
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 absolute left-3 top-3 text-zinc-500" />
+                <input
+                  type="text"
+                  placeholder="Buscar aluno por nome ou e-mail..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                />
+              </div>
+
+              <div className="flex items-center gap-1 bg-zinc-950 p-1 rounded-xl border border-zinc-800 text-[11px] font-bold">
+                <button
+                  onClick={() => setStatusFilter("ativo")}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${statusFilter === "ativo" ? "bg-emerald-600 text-white" : "text-zinc-400 hover:text-white"}`}
+                >
+                  Ativos
+                </button>
+                <button
+                  onClick={() => setStatusFilter("inativo")}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${statusFilter === "inativo" ? "bg-zinc-800 text-red-400" : "text-zinc-400 hover:text-white"}`}
+                >
+                  Inativos
+                </button>
+                <button
+                  onClick={() => setStatusFilter("todos")}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${statusFilter === "todos" ? "bg-zinc-800 text-white" : "text-zinc-400 hover:text-white"}`}
+                >
+                  Todos
+                </button>
+              </div>
             </div>
 
             <select
@@ -519,7 +614,7 @@ export default function DashboardPage() {
               ) : (
                 filteredStudents.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.name} ({s.email})
+                    {s.name} ({s.email}) - [{(s.status || "ativo").toUpperCase()}]
                   </option>
                 ))
               )}
@@ -533,11 +628,21 @@ export default function DashboardPage() {
                   <h3 className="text-base font-bold text-white flex items-center gap-2">
                     <Activity className="w-5 h-5 text-emerald-400" />
                     Gerenciando: {selectedStudent.name}
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${(selectedStudent.status || "ativo") === "ativo" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20"}`}>
+                      {selectedStudent.status || "ativo"}
+                    </span>
                   </h3>
                   <p className="text-xs text-zinc-400">Monte treinos e acompanhe métricas corporais</p>
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleToggleStudentStatus(selectedStudent)}
+                    className={`px-3 py-2 text-xs font-bold rounded-xl border transition-colors cursor-pointer flex items-center gap-1.5 ${(selectedStudent.status || "ativo") === "ativo" ? "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20" : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"}`}
+                    title="Alterar Status"
+                  >
+                    {(selectedStudent.status || "ativo") === "ativo" ? <><UserX className="w-4 h-4" /> Inativar</> : <><UserCheck className="w-4 h-4" /> Ativar</>}
+                  </button>
                   <button
                     onClick={() => setIsMetricsModalOpen(true)}
                     className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white rounded-xl shadow-lg shadow-emerald-950/50 transition-colors cursor-pointer"
@@ -552,6 +657,35 @@ export default function DashboardPage() {
                   </button>
                 </div>
               </div>
+
+              {/* Seção de Frequência e Esforço Recente do Aluno */}
+              {selectedStudentLogs.length > 0 && (
+                <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-3">
+                  <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                    <Calendar className="w-4 h-4" /> Histórico de Frequência & Percepção de Esforço
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {selectedStudentLogs.map((log) => (
+                      <div key={log.id} className="p-2.5 bg-zinc-950 rounded-xl border border-zinc-800/80 text-xs flex justify-between items-center">
+                        <div>
+                          <p className="font-bold text-white">{log.workout_title}</p>
+                          <p className="text-[10px] text-zinc-500">
+                            {new Date(log.created_at).toLocaleDateString("pt-BR", {
+                              day: "2-digit",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                        </div>
+                        <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
+                          Concluído
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {loadingWorkouts ? (
                 <div className="p-8 text-center">
