@@ -21,6 +21,7 @@ import {
   ChevronUp,
   LineChart,
   LogOut,
+  DollarSign,
 } from "lucide-react";
 import CreateWorkoutModal from "@/components/CreateWorkoutModal";
 import EditWorkoutModal from "@/components/EditWorkoutModal";
@@ -138,7 +139,6 @@ export default function DashboardPage() {
       setProfile(currentUserProfile);
 
       if (currentUserProfile.role === "personal") {
-        // Busca unificada na tabela users ignorando a conta do personal
         const { data: usersData } = await supabase
           .from("users")
           .select("*")
@@ -156,7 +156,6 @@ export default function DashboardPage() {
           setSelectedStudent(mappedStudents[0]);
           fetchSelectedStudentData(mappedStudents[0].id);
         } else {
-          // Fallback para a tabela profiles
           const { data: profilesData } = await supabase
             .from("profiles")
             .select("*")
@@ -345,36 +344,43 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        <div className="flex items-center gap-2 pt-1">
+        <div className="grid grid-cols-4 gap-2 pt-1">
           {profile?.role === "personal" ? (
             <>
               <button
                 onClick={() => router.push("/")}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-900/30"
+                className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-900/30"
               >
-                <Dumbbell className="w-4 h-4" /> Exercícios
+                <Dumbbell className="w-3.5 h-3.5" /> Treinos
               </button>
               <button
                 onClick={() => router.push("/fichas-de-treino")}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 transition-colors"
+                className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 transition-colors"
               >
-                <FileText className="w-4 h-4" /> Fichas
+                <FileText className="w-3.5 h-3.5" /> Fichas
               </button>
             </>
           ) : (
             <button
               onClick={() => router.push("/")}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-900/30"
+              className="col-span-2 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-900/30"
             >
-              <Dumbbell className="w-4 h-4" /> Meu Treino
+              <Dumbbell className="w-3.5 h-3.5" /> Meu Treino
             </button>
           )}
 
           <button
             onClick={() => router.push("/progresso")}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 transition-colors"
+            className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 transition-colors"
           >
-            <LineChart className="w-4 h-4" /> Progresso
+            <LineChart className="w-3.5 h-3.5" /> Progresso
+          </button>
+
+          <button
+            onClick={() => router.push("/financeiro")}
+            className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 transition-colors"
+          >
+            <DollarSign className="w-3.5 h-3.5 text-emerald-400" /> Financeiro
           </button>
         </div>
       </header>
