@@ -21,10 +21,15 @@ import {
   LogOut,
   DollarSign,
   Search,
+  Copy,
+  MessageCircle,
+  Bell,
+  Send,
 } from "lucide-react";
 import CreateWorkoutModal from "@/components/CreateWorkoutModal";
 import EditWorkoutModal from "@/components/EditWorkoutModal";
 import AddMetricsModal from "@/components/AddMetricsModal";
+import WorkoutFeedbackModal from "@/components/WorkoutFeedbackModal";
 
 interface UserProfile {
   id: string;
@@ -49,12 +54,10 @@ interface Workout {
   exercises: Exercise[];
 }
 
-interface BodyMetric {
+interface Announcement {
   id: string;
-  weight: number | null;
-  height: number | null;
-  body_fat: number | null;
-  muscle_mass: number | null;
+  title: string;
+  message: string;
   created_at: string;
 }
 
@@ -65,23 +68,43 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<UserProfile | null>(null);
   const [selectedStudentWorkouts, setSelectedStudentWorkouts] = useState<Workout[]>([]);
-  const [selectedStudentMetrics, setSelectedStudentMetrics] = useState<BodyMetric[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMetricsModalOpen, setIsMetricsModalOpen] = useState(false);
   const [editingWorkout, setEditingWorkout] = useState<Workout | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingWorkouts, setLoadingWorkouts] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
+  // Treinos e Feedback
   const [studentWorkouts, setStudentWorkouts] = useState<Workout[]>([]);
   const [savingExerciseId, setSavingExerciseId] = useState<string | null>(null);
-  const [completingWorkoutId, setCompletingWorkoutId] = useState<string | null>(null);
   const [completedToday, setCompletedToday] = useState<string[]>([]);
   const [expandedWorkoutId, setExpandedWorkoutId] = useState<string | null>(null);
+  const [activeFeedbackWorkout, setActiveFeedbackWorkout] = useState<{ id: string; title: string } | null>(null);
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+
+  // Notificações
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [newNoticeTitle, setNewNoticeTitle] = useState("");
+  const [newNoticeMsg, setNewNoticeMsg] = useState("");
+  const [sendingNotice, setSendingNotice] = useState(false);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
+
+  const fetchAnnouncements = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("announcements")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(5);
+      
+    if (!error && data) {
+      setAnnouncements(data);
+    }
+  }, [supabase]);
 
   const fetchTodayLogs = useCallback(async (studentId: string) => {
     const todayKey = new Date().toISOString().split("T")[0];
@@ -92,9 +115,8 @@ export default function DashboardPage() {
 
     const { data: logs } = await supabase
       .from("workout_logs")
-      .select("workout_id, created_at")
-      .eq("student_id", studentId)
-      .order("created_at", { ascending: false });
+      .select("workout_id")
+      .eq("student_id", studentId);
 
     if (logs && logs.length > 0) {
       const dbWorkoutIds = logs.map((log) => log.workout_id);
@@ -108,6 +130,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function loadDashboardData() {
+      await fetchAnnouncements();
+
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
@@ -174,7 +198,7 @@ export default function DashboardPage() {
     }
 
     loadDashboardData();
-  }, [router, fetchTodayLogs, supabase]);
+  }, [router, fetchTodayLogs, fetchAnnouncements, supabase]);
 
   async function fetchSelectedStudentData(studentId: string) {
     setLoadingWorkouts(true);
@@ -187,16 +211,6 @@ export default function DashboardPage() {
 
     if (workoutsData) {
       setSelectedStudentWorkouts(workoutsData as Workout[]);
-    }
-
-    const { data: metricsData } = await supabase
-      .from("body_metrics")
-      .select("*")
-      .eq("student_id", studentId)
-      .order("created_at", { ascending: false });
-
-    if (metricsData) {
-      setSelectedStudentMetrics(metricsData as BodyMetric[]);
     }
 
     setLoadingWorkouts(false);
@@ -225,62 +239,48 @@ export default function DashboardPage() {
     }
   }
 
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    router.push("/login");
+  function handleCopyInviteLink() {
+    const link = `${window.location.origin}/cadastro`;
+    navigator.clipboard.writeText(link);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2500);
   }
 
-  async function handleDeleteWorkout(workoutId: string) {
-    const confirmDelete = confirm("Tem certeza que deseja excluir esta ficha de treino?");
-    if (!confirmDelete) return;
+  function handleSendWhatsAppInvite() {
+    const link = `${window.location.origin}/cadastro`;
+    const text = encodeURIComponent(
+      `Olá! Aqui está o seu link para se cadastrar no app Tauil Fit e acessar seus treinos: ${link}`
+    );
+    window.open(`https://wa.me/?text=${text}`, "_blank");
+  }
 
-    const { error } = await supabase
-      .from("workouts")
-      .delete()
-      .eq("id", workoutId);
+  async function handleSendNotice() {
+    if (!newNoticeTitle.trim() || !newNoticeMsg.trim()) return;
+    setSendingNotice(true);
 
-    if (error) {
-      alert("Erro ao excluir a ficha de treino.");
+    const { error } = await supabase.from("announcements").insert([
+      { title: newNoticeTitle.trim(), message: newNoticeMsg.trim() },
+    ]);
+
+    if (!error) {
+      setNewNoticeTitle("");
+      setNewNoticeMsg("");
+      await fetchAnnouncements();
+      alert("Aviso publicado com sucesso!");
     } else {
-      alert("Ficha excluída com sucesso!");
-      if (selectedStudent) {
-        fetchSelectedStudentData(selectedStudent.id);
-      }
-    }
-  }
-
-  function handleWeightChange(workoutIndex: number, exerciseIndex: number, newWeight: number) {
-    const updatedWorkouts = [...studentWorkouts];
-    updatedWorkouts[workoutIndex].exercises[exerciseIndex].weight = newWeight;
-    setStudentWorkouts(updatedWorkouts);
-  }
-
-  async function handleSaveWeight(exercise: Exercise) {
-    setSavingExerciseId(exercise.id);
-
-    const { error } = await supabase
-      .from("exercises")
-      .update({ weight: exercise.weight })
-      .eq("id", exercise.id);
-
-    if (error) {
-      alert("Erro ao salvar carga.");
-    } else {
-      alert("Carga atualizada com sucesso!");
+      console.error("Erro Supabase ao enviar aviso:", error);
+      alert(`Erro no Supabase: ${error.message}`);
     }
 
-    setSavingExerciseId(null);
+    setSendingNotice(false);
   }
 
-  async function handleCompleteWorkout(
-    workoutTitle: string,
-    workoutId: string,
-    e?: React.MouseEvent
-  ) {
-    if (e) e.stopPropagation();
-    if (!profile) return;
+  async function handleSaveWorkoutFeedback(intensity: string) {
+    if (!activeFeedbackWorkout || !profile) return;
+    setSubmittingFeedback(true);
 
-    setCompletingWorkoutId(workoutId);
+    const workoutId = activeFeedbackWorkout.id;
+    const workoutTitle = activeFeedbackWorkout.title;
 
     const updated = Array.from(new Set([...completedToday, workoutId]));
     setCompletedToday(updated);
@@ -294,15 +294,54 @@ export default function DashboardPage() {
         {
           student_id: profile.id,
           workout_id: workoutId,
-          workout_title: workoutTitle,
+          workout_title: `${workoutTitle} (${intensity})`,
         },
       ]);
     } catch (err) {
-      console.error("Erro ao sincronizar log com Supabase:", err);
+      console.error("Erro ao sincronizar log:", err);
     }
 
-    alert("Parabéns! Treino registrado com sucesso.");
-    setCompletingWorkoutId(null);
+    setSubmittingFeedback(false);
+    setActiveFeedbackWorkout(null);
+    alert("Parabéns! Treino concluído e feedback registrado.");
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push("/login");
+  }
+
+  async function handleDeleteWorkout(workoutId: string) {
+    const confirmDelete = confirm("Tem certeza que deseja excluir esta ficha de treino?");
+    if (!confirmDelete) return;
+
+    const { error } = await supabase.from("workouts").delete().eq("id", workoutId);
+
+    if (!error && selectedStudent) {
+      alert("Ficha excluída com sucesso!");
+      fetchSelectedStudentData(selectedStudent.id);
+    }
+  }
+
+  function handleWeightChange(workoutIndex: number, exerciseIndex: number, newWeight: number) {
+    const updatedWorkouts = [...studentWorkouts];
+    updatedWorkouts[workoutIndex].exercises[exerciseIndex].weight = newWeight;
+    setStudentWorkouts(updatedWorkouts);
+  }
+
+  async function handleSaveWeight(exercise: Exercise) {
+    setSavingExerciseId(exercise.id);
+    const { error } = await supabase
+      .from("exercises")
+      .update({ weight: exercise.weight })
+      .eq("id", exercise.id);
+
+    if (error) {
+      alert("Erro ao salvar carga.");
+    } else {
+      alert("Carga atualizada com sucesso!");
+    }
+    setSavingExerciseId(null);
   }
 
   const filteredStudents = students.filter(
@@ -345,7 +384,7 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        <div className="grid grid-cols-4 gap-2 pt-1">
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 pt-1">
           {profile?.role === "personal" ? (
             <>
               <button
@@ -364,7 +403,7 @@ export default function DashboardPage() {
           ) : (
             <button
               onClick={() => router.push("/")}
-              className="col-span-2 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-950/50 transition-all hover:bg-emerald-500"
+              className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-950/50 transition-all hover:bg-emerald-500"
             >
               <Dumbbell className="w-3.5 h-3.5" /> Meu Treino
             </button>
@@ -386,16 +425,79 @@ export default function DashboardPage() {
         </div>
       </header>
 
+      {/* QUADRO DE AVISOS */}
+      {announcements.length > 0 && (
+        <section className="p-4 bg-emerald-950/20 border border-emerald-500/30 rounded-2xl space-y-3 shadow-lg shadow-emerald-950/20">
+          <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+            <Bell className="w-4 h-4 text-emerald-400 animate-pulse" /> Quadro de Avisos do Personal
+          </h3>
+          <div className="space-y-2">
+            {announcements.map((item) => (
+              <div key={item.id} className="p-3 bg-zinc-900 rounded-xl border border-zinc-800">
+                <p className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                  {item.title}
+                </p>
+                <p className="text-xs text-zinc-300 mt-1 pl-3.5 leading-relaxed">{item.message}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {profile?.role === "personal" && (
         <section className="space-y-4">
           <div className="p-5 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-3">
-            <div className="flex items-center justify-between">
+            <h2 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+              <Bell className="w-4 h-4" /> Disparar Notificação / Lembrete
+            </h2>
+            <div className="space-y-2">
+              <input
+                type="text"
+                placeholder="Título (Ex: Lembrete de Hidratação)"
+                value={newNoticeTitle}
+                onChange={(e) => setNewNoticeTitle(e.target.value)}
+                className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500"
+              />
+              <textarea
+                placeholder="Mensagem (Ex: Lembre-se de beber ao menos 2L de água hoje!)"
+                value={newNoticeMsg}
+                onChange={(e) => setNewNoticeMsg(e.target.value)}
+                className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500 h-16 resize-none"
+              />
+              <button
+                onClick={handleSendNotice}
+                disabled={sendingNotice}
+                className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {sendingNotice ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" /> Enviar para os Alunos</>}
+              </button>
+            </div>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <h2 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
                 <Users className="w-4 h-4" /> SELECIONAR ALUNO ({filteredStudents.length}/{students.length})
               </h2>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCopyInviteLink}
+                  className="flex items-center gap-1.5 py-1.5 px-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-bold rounded-xl transition-all cursor-pointer"
+                >
+                  {copiedLink ? <><Check className="w-3.5 h-3.5" /> Copiado!</> : <><Copy className="w-3.5 h-3.5" /> Link</>}
+                </button>
+
+                <button
+                  onClick={handleSendWhatsAppInvite}
+                  className="flex items-center gap-1.5 py-1.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold rounded-xl transition-all cursor-pointer"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+                </button>
+              </div>
             </div>
 
-            {/* Campo de Busca por Nome ou E-mail */}
             <div className="relative">
               <Search className="w-4 h-4 absolute left-3 top-3 text-zinc-500" />
               <input
@@ -407,16 +509,13 @@ export default function DashboardPage() {
               />
             </div>
 
-            {/* Menu Suspenso Compacto e Limpo */}
             <select
               value={selectedStudent?.id || ""}
               onChange={(e) => handleSelectStudentById(e.target.value)}
               className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-white font-bold focus:border-emerald-500 focus:outline-none cursor-pointer"
             >
               {filteredStudents.length === 0 ? (
-                <option value="" disabled>
-                  Nenhum aluno encontrado
-                </option>
+                <option value="" disabled>Nenhum aluno encontrado</option>
               ) : (
                 filteredStudents.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -477,14 +576,12 @@ export default function DashboardPage() {
                             <button
                               onClick={() => setEditingWorkout(workout)}
                               className="p-1.5 text-zinc-400 hover:text-emerald-400 rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer"
-                              title="Editar Ficha"
                             >
                               <Pencil className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDeleteWorkout(workout.id)}
                               className="p-1.5 text-zinc-400 hover:text-red-400 rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer"
-                              title="Excluir Ficha"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -533,14 +630,10 @@ export default function DashboardPage() {
           ) : (
             studentWorkouts.map((workout, wIdx) => {
               const isCompleted = completedToday.includes(workout.id);
-              const isCompleting = completingWorkoutId === workout.id;
               const isExpanded = expandedWorkoutId === workout.id;
 
               return (
-                <div
-                  key={workout.id}
-                  className="rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden transition-all"
-                >
+                <div key={workout.id} className="rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden transition-all">
                   <div
                     onClick={() => setExpandedWorkoutId(isExpanded ? null : workout.id)}
                     className="p-4 flex items-center justify-between cursor-pointer hover:bg-zinc-800/50 transition-colors"
@@ -559,34 +652,25 @@ export default function DashboardPage() {
 
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={(e) => handleCompleteWorkout(workout.title, workout.id, e)}
-                        disabled={isCompleting || isCompleted}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveFeedbackWorkout({ id: workout.id, title: workout.title });
+                        }}
+                        disabled={isCompleted}
                         className={`py-1.5 px-3 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
                           isCompleted
                             ? "bg-zinc-800 text-emerald-400 border border-emerald-500/30 cursor-not-allowed opacity-90"
                             : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-900/30 active:scale-95 cursor-pointer"
                         }`}
                       >
-                        {isCompleting ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : isCompleted ? (
-                          <>
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>Concluído</span>
-                          </>
+                        {isCompleted ? (
+                          <><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /><span>Concluído</span></>
                         ) : (
-                          <>
-                            <Check className="w-3.5 h-3.5" />
-                            <span>Concluir</span>
-                          </>
+                          <><Check className="w-3.5 h-3.5" /><span>Concluir</span></>
                         )}
                       </button>
 
-                      {isExpanded ? (
-                        <ChevronUp className="w-5 h-5 text-zinc-500" />
-                      ) : (
-                        <ChevronDown className="w-5 h-5 text-zinc-500" />
-                      )}
+                      {isExpanded ? <ChevronUp className="w-5 h-5 text-zinc-500" /> : <ChevronDown className="w-5 h-5 text-zinc-500" />}
                     </div>
                   </div>
 
@@ -598,17 +682,10 @@ export default function DashboardPage() {
 
                       {workout.exercises && workout.exercises.length > 0 ? (
                         workout.exercises.map((exercise, eIdx) => (
-                          <div
-                            key={exercise.id}
-                            className="p-3 bg-zinc-900 border border-zinc-800/80 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                          >
+                          <div key={exercise.id} className="p-3 bg-zinc-900 border border-zinc-800/80 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div>
-                              <h5 className="text-sm font-semibold text-white">
-                                {exercise.name}
-                              </h5>
-                              <p className="text-xs text-zinc-400">
-                                {exercise.sets} Séries × {exercise.reps} Repetições
-                              </p>
+                              <h5 className="text-sm font-semibold text-white">{exercise.name}</h5>
+                              <p className="text-xs text-zinc-400">{exercise.sets} Séries × {exercise.reps} Repetições</p>
                             </div>
 
                             <div className="flex items-center gap-2">
@@ -617,9 +694,7 @@ export default function DashboardPage() {
                                 <input
                                   type="number"
                                   value={exercise.weight}
-                                  onChange={(e) =>
-                                    handleWeightChange(wIdx, eIdx, Number(e.target.value))
-                                  }
+                                  onChange={(e) => handleWeightChange(wIdx, eIdx, Number(e.target.value))}
                                   className="w-14 bg-transparent text-sm font-bold text-emerald-400 text-center focus:outline-none"
                                   min="0"
                                 />
@@ -630,21 +705,14 @@ export default function DashboardPage() {
                                 onClick={() => handleSaveWeight(exercise)}
                                 disabled={savingExerciseId === exercise.id}
                                 className="p-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors flex items-center justify-center cursor-pointer"
-                                title="Salvar carga"
                               >
-                                {savingExerciseId === exercise.id ? (
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                  <Save className="w-4 h-4" />
-                                )}
+                                {savingExerciseId === exercise.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                               </button>
                             </div>
                           </div>
                         ))
                       ) : (
-                        <p className="text-xs text-zinc-500 py-2">
-                          Nenhum exercício cadastrado nesta ficha ainda.
-                        </p>
+                        <p className="text-xs text-zinc-500 py-2">Nenhum exercício cadastrado nesta ficha ainda.</p>
                       )}
                     </div>
                   )}
@@ -655,14 +723,22 @@ export default function DashboardPage() {
         </section>
       )}
 
+      {/* Modais */}
+      {activeFeedbackWorkout && (
+        <WorkoutFeedbackModal
+          workoutTitle={activeFeedbackWorkout.title}
+          onConfirm={handleSaveWorkoutFeedback}
+          onClose={() => setActiveFeedbackWorkout(null)}
+          loading={submittingFeedback}
+        />
+      )}
+
       {isModalOpen && selectedStudent && (
         <CreateWorkoutModal
           studentId={selectedStudent.id}
           studentName={selectedStudent.name}
           onClose={() => setIsModalOpen(false)}
-          onSuccess={() => {
-            fetchSelectedStudentData(selectedStudent.id);
-          }}
+          onSuccess={() => fetchSelectedStudentData(selectedStudent.id)}
         />
       )}
 
@@ -671,9 +747,7 @@ export default function DashboardPage() {
           studentId={selectedStudent.id}
           studentName={selectedStudent.name}
           onClose={() => setIsMetricsModalOpen(false)}
-          onSuccess={() => {
-            fetchSelectedStudentData(selectedStudent.id);
-          }}
+          onSuccess={() => fetchSelectedStudentData(selectedStudent.id)}
         />
       )}
 
@@ -681,9 +755,7 @@ export default function DashboardPage() {
         <EditWorkoutModal
           workout={editingWorkout}
           onClose={() => setEditingWorkout(null)}
-          onSuccess={() => {
-            fetchSelectedStudentData(selectedStudent.id);
-          }}
+          onSuccess={() => fetchSelectedStudentData(selectedStudent.id)}
         />
       )}
     </main>
