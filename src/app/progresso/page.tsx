@@ -18,6 +18,8 @@ import {
   Search,
 } from "lucide-react";
 import jsPDF from "jspdf";
+import { Filesystem, Directory } from "@capacitor/filesystem";
+import { Share } from "@capacitor/share";
 
 interface BodyMetric {
   id: string;
@@ -150,7 +152,7 @@ export default function ProgressoPage() {
       s.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  function handleExportPDF() {
+  async function handleExportPDF() {
     setGeneratingPdf(true);
 
     try {
@@ -296,7 +298,21 @@ export default function ProgressoPage() {
       doc.setFont("helvetica", "normal");
       doc.text("Gerado por Tauil Fit - Sistema Oficial de Acompanhamento", 15, 285);
 
-      doc.save(`Relatorio_${selectedStudentName.replace(/\s+/g, "_")}_TauilFit.pdf`);
+      // --- TRATAMENTO NATIVO PARA MOBILE (CAPACITOR) ---
+      const pdfBase64 = doc.output("datauristring").split(",")[1];
+      const fileName = `Relatorio_${selectedStudentName.replace(/\s+/g, "_")}_TauilFit.pdf`;
+
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: pdfBase64,
+        directory: Directory.Cache,
+      });
+
+      await Share.share({
+        title: "Relatório de Progresso - Tauil Fit",
+        url: savedFile.uri,
+        dialogTitle: "Salvar ou Compartilhar PDF",
+      });
     } catch (err) {
       console.error("Erro ao gerar PDF:", err);
       alert("Ocorreu um erro ao gerar o PDF.");

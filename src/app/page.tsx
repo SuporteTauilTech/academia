@@ -28,6 +28,8 @@ import {
   Calendar,
   UserCheck,
   UserX,
+  Cake,
+  Gift,
 } from "lucide-react";
 import CreateWorkoutModal from "@/components/CreateWorkoutModal";
 import EditWorkoutModal from "@/components/EditWorkoutModal";
@@ -41,6 +43,8 @@ interface UserProfile {
   email: string;
   role: "personal" | "aluno" | "student";
   status?: "ativo" | "inativo";
+  phone?: string | null;
+  birth_date?: string | null;
 }
 
 interface Exercise {
@@ -168,6 +172,8 @@ export default function DashboardPage() {
         email: user.email || "",
         role: determinedRole as "personal" | "aluno" | "student",
         status: userData?.status || "ativo",
+        phone: userData?.phone || null,
+        birth_date: userData?.birth_date || null,
       };
 
       setProfile(currentUserProfile);
@@ -196,6 +202,8 @@ export default function DashboardPage() {
               email: u.email || "",
               role: u.role || "aluno",
               status: u.status === "inativo" ? "inativo" : "ativo",
+              phone: u.phone || u.whatsapp || null,
+              birth_date: u.birth_date || null,
             };
           });
 
@@ -286,18 +294,32 @@ export default function DashboardPage() {
   }
 
   function handleCopyInviteLink() {
-    const link = `${window.location.origin}/cadastro`;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://academia.tauiltech.tec.br";
+    const link = `${baseUrl}/cadastro`;
     navigator.clipboard.writeText(link);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2500);
   }
 
   function handleSendWhatsAppInvite() {
-    const link = `${window.location.origin}/cadastro`;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://academia.tauiltech.tec.br";
+    const link = `${baseUrl}/cadastro`;
     const text = encodeURIComponent(
-      `Olá! Aqui está o seu link para se cadastrar no app Tauil Fit e acessar seus treinos: ${link}`
+      `Olá! Aqui está o seu link para se cadastrar no app Tauil Fit e acessar seus treinos:\n\n${link}`
     );
-    window.open(`https://wa.me/?text=${text}`, "_blank");
+    window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
+  }
+
+  function handleSendBirthdayMessage(student: UserProfile) {
+    if (!student.phone) {
+      alert("Este aluno não possui número de WhatsApp cadastrado.");
+      return;
+    }
+    const cleanPhone = student.phone.replace(/\D/g, "");
+    const message = encodeURIComponent(
+      `Olá, ${student.name}! 🥳🎉 Parabéns pelo seu aniversário! Toda a equipe Tauil Fit te deseja muita saúde, foco e grandes conquistas. Conta com a gente!`
+    );
+    window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${message}`, "_blank");
   }
 
   async function handleSendNotice() {
@@ -409,6 +431,19 @@ export default function DashboardPage() {
     return matchesSearch && matchesStatus;
   });
 
+  // Filtro de Aniversariantes do Mês Atual
+  const today = new Date();
+  const currentMonth = today.getMonth() + 1;
+  const currentDay = today.getDate();
+
+  const birthdayStudents = students.filter((s) => {
+    if (!s.birth_date) return false;
+    const parts = s.birth_date.split("-");
+    if (parts.length < 3) return false;
+    const birthMonth = parseInt(parts[1], 10);
+    return birthMonth === currentMonth;
+  });
+
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-zinc-950 text-white">
@@ -491,6 +526,63 @@ export default function DashboardPage() {
           </button>
         </div>
       </header>
+
+      {/* PAINEL DE ANIVERSARIANTES DO MÊS */}
+      {profile?.role === "personal" && birthdayStudents.length > 0 && (
+        <section className="p-4 bg-gradient-to-r from-amber-950/30 via-zinc-900 to-amber-950/20 border border-amber-500/30 rounded-2xl space-y-3 shadow-lg">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
+              <Cake className="w-4 h-4 text-amber-400 animate-bounce" /> Aniversariantes do Mês ({birthdayStudents.length})
+            </h3>
+            <span className="text-[10px] text-amber-300/80 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+              Lembrete
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {birthdayStudents.map((st) => {
+              const birthParts = st.birth_date!.split("-");
+              const birthDayNum = parseInt(birthParts[2], 10);
+              const isToday = birthDayNum === currentDay;
+
+              return (
+                <div
+                  key={st.id}
+                  className={`p-3 rounded-xl border flex items-center justify-between gap-2 ${
+                    isToday
+                      ? "bg-amber-500/10 border-amber-500/50"
+                      : "bg-zinc-950/80 border-zinc-800"
+                  }`}
+                >
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-bold text-white flex items-center gap-1.5">
+                      {st.name}
+                      {isToday && (
+                        <span className="text-[9px] bg-amber-500 text-black px-1.5 py-0.2 font-black rounded-md">
+                          É HOJE! 🎉
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-[11px] text-zinc-400">
+                      Dia {birthDayNum} ({st.phone || "Sem WhatsApp"})
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => handleSendBirthdayMessage(st)}
+                    disabled={!st.phone}
+                    className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white rounded-xl text-[11px] font-bold transition-all cursor-pointer shadow-md"
+                    title="Mandar Parabéns no WhatsApp"
+                  >
+                    <Gift className="w-3.5 h-3.5" />
+                    <span>Parabéns</span>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* QUADRO DE AVISOS */}
       {announcements.length > 0 && (
@@ -642,7 +734,10 @@ export default function DashboardPage() {
                       {selectedStudent.status || "ativo"}
                     </span>
                   </h3>
-                  <p className="text-xs text-zinc-400">Monte treinos e acompanhe métricas corporais</p>
+                  <p className="text-xs text-zinc-400">
+                    Monte treinos e acompanhe métricas corporais
+                    {selectedStudent.phone && ` • Tel: ${selectedStudent.phone}`}
+                  </p>
                 </div>
 
                 <div className="flex items-center gap-2">

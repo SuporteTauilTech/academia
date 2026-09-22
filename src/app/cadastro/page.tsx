@@ -3,13 +3,15 @@
 import { useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
-import { Dumbbell, UserPlus, Loader2, CheckCircle2 } from "lucide-react";
+import { Dumbbell, UserPlus, Loader2, CheckCircle2, Phone, Calendar } from "lucide-react";
 
 export default function CadastroAlunoPage() {
   const router = useRouter();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
+  const [birthDate, setBirthDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -44,11 +46,13 @@ export default function CadastroAlunoPage() {
       }
 
       if (data.user) {
-        // 2. Garante o registro na tabela de perfis/usuários como aluno
+        // 2. Garante o registro nas tabelas de perfis/usuários com phone e birth_date
         await supabase.from("profiles").upsert({
           id: data.user.id,
           full_name: fullName.trim(),
           email: email.trim(),
+          phone: phone.trim() || null,
+          birth_date: birthDate || null,
           role: "aluno",
           status: "ativo",
         });
@@ -57,6 +61,8 @@ export default function CadastroAlunoPage() {
           id: data.user.id,
           name: fullName.trim(),
           email: email.trim(),
+          phone: phone.trim() || null,
+          birth_date: birthDate || null,
           role: "aluno",
         });
 
@@ -101,7 +107,7 @@ export default function CadastroAlunoPage() {
             )}
 
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-zinc-400">Nome Completo</label>
+              <label className="text-xs font-semibold text-zinc-400">Nome Completo *</label>
               <input
                 type="text"
                 required
@@ -113,7 +119,7 @@ export default function CadastroAlunoPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-zinc-400">Seu E-mail</label>
+              <label className="text-xs font-semibold text-zinc-400">Seu E-mail *</label>
               <input
                 type="email"
                 required
@@ -125,7 +131,32 @@ export default function CadastroAlunoPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-zinc-400">Crie uma Senha</label>
+              <label className="text-xs font-semibold text-zinc-400 flex items-center gap-1">
+                <Phone className="w-3.5 h-3.5 text-emerald-400" /> WhatsApp / Celular
+              </label>
+              <input
+                type="tel"
+                placeholder="(21) 99999-9999"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-zinc-400 flex items-center gap-1">
+                <Calendar className="w-3.5 h-3.5 text-emerald-400" /> Data de Nascimento
+              </label>
+              <input
+                type="date"
+                value={birthDate}
+                onChange={(e) => setBirthDate(e.target.value)}
+                className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors text-zinc-300"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-zinc-400">Crie uma Senha *</label>
               <input
                 type="password"
                 required
@@ -140,7 +171,7 @@ export default function CadastroAlunoPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-950/50 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-950/50 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer mt-2"
             >
               {loading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
